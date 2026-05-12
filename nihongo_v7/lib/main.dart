@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,19 +21,31 @@ class MyApp extends StatelessWidget {
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
+  static const platform =
+      MethodChannel('overlay_channel');
+
+  Future<void> startOverlay() async {
+
+    try {
+      await platform.invokeMethod(
+        'startOverlay'
+      );
+    } catch (_) {}
+  }
+
   @override
   Widget build(BuildContext context) {
+
     return Scaffold(
-      backgroundColor: const Color(0xFF111111),
+      backgroundColor: Colors.black,
+
       body: Center(
-        child: Container(
-          padding: const EdgeInsets.all(20),
+        child: ElevatedButton(
+
+          onPressed: startOverlay,
+
           child: const Text(
-            "Nihongo Lens Running",
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 24,
-            ),
+            "START OVERLAY"
           ),
         ),
       ),
