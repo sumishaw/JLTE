@@ -1,5 +1,10 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import 'package:google_mlkit_translation/google_mlkit_translation.dart';
+import 'package:path_provider/path_provider.dart';
 
 void main() {
   runApp(const MyApp());
@@ -29,30 +34,112 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
 
-  static const platform =
-      MethodChannel(
-        "nihongo_lens/capture",
+  final recognizer =
+      TextRecognizer(
+        script:
+            TextRecognitionScript.japanese,
       );
 
+  final translator =
+      OnDeviceTranslator(
+        sourceLanguage:
+            TranslateLanguage.japanese,
+        targetLanguage:
+            TranslateLanguage.english,
+      );
+
+  String japanese =
+      "Waiting for subtitles...";
+
+  String english =
+      "Waiting for translation...";
+
   String status =
-      "Live subtitle capture not started";
+      "Idle";
 
-  bool running = false;
+  Timer? timer;
 
-  Future<void> startCapture() async {
+  @override
+  void initState() {
+
+    super.initState();
+
+    startLiveOCR();
+  }
+
+  void startLiveOCR() {
+
+    timer = Timer.periodic(
+      const Duration(seconds: 3),
+      (_) async {
+
+        await processLatestFrame();
+      },
+    );
+  }
+
+  Future<void> processLatestFrame() async {
 
     try {
 
-      await platform.invokeMethod(
-        "startCapture",
+      final dir =
+          await getApplicationDocumentsDirectory();
+
+      final file = File(
+        "${dir.path}/captures/latest_frame.png",
       );
+
+      if (!await file.exists()) {
+
+        setState(() {
+
+          status =
+              "Waiting for captured frame...";
+        });
+
+        return;
+      }
 
       setState(() {
 
-        running = true;
-
         status =
-            "Waiting for screen capture permission...";
+            "Processing frame...";
+      });
+
+      final inputImage =
+          InputImage.fromFilePath(
+            file.path,
+          );
+
+      final result =
+          await recognizer.processImage(
+            inputImage,
+          );
+
+      final jp =
+          result.text.trim();
+
+      if (jp.isEmpty) {
+
+        setState(() {
+
+          status =
+              "No Japanese subtitles detected";
+        });
+
+        return;
+      }
+
+      final translated =
+          await translator.translateText(jp);
+
+      setState(() {
+
+        japanese = jp;
+
+        english = translated;
+
+        status = "Live subtitle updated";
       });
 
     } catch (e) {
@@ -66,6 +153,18 @@ class _HomePageState extends State<HomePage> {
   }
 
   @override
+  void dispose() {
+
+    timer?.cancel();
+
+    recognizer.close();
+
+    translator.close();
+
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
 
     return Scaffold(
@@ -73,23 +172,6 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         title: const Text(
           "Nihongo Lens Live",
-        ),
-      ),
-
-      floatingActionButton:
-          FloatingActionButton.extended(
-
-        onPressed:
-            running
-                ? null
-                : startCapture,
-
-        icon: const Icon(
-          Icons.play_arrow,
-        ),
-
-        label: const Text(
-          "Start Live Capture",
         ),
       ),
 
@@ -106,7 +188,6 @@ class _HomePageState extends State<HomePage> {
             const SizedBox(height: 20),
 
             const Text(
-
               "STATUS",
 
               style: TextStyle(
@@ -115,7 +196,45 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
 
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
+
+            Container(
+
+              width: double.infinity,
+
+              padding:
+                  const EdgeInsets.all(16),
+
+              decoration: BoxDecoration(
+                color: Colors.white10,
+                borderRadius:
+                    BorderRadius.circular(
+                      12,
+                    ),
+              ),
+
+              child: Text(
+
+                status,
+
+                style: const TextStyle(
+                  fontSize: 20,
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 30),
+
+            const Text(
+              "Japanese Subtitle",
+
+              style: TextStyle(
+                fontSize: 18,
+                color: Colors.white70,
+              ),
+            ),
+
+            const SizedBox(height: 10),
 
             Container(
 
@@ -134,11 +253,55 @@ class _HomePageState extends State<HomePage> {
 
               child: Text(
 
-                status,
+                japanese,
 
                 style: const TextStyle(
                   fontSize: 24,
-                  color: Colors.white,
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 30),
+
+            const Text(
+              "English Translation",
+
+              style: TextStyle(
+                fontSize: 18,
+                color: Colors.greenAccent,
+              ),
+            ),
+
+            const SizedBox(height: 10),
+
+            Container(
+
+              width: double.infinity,
+
+              padding:
+                  const EdgeInsets.all(18),
+
+              decoration: BoxDecoration(
+                color:
+                    Colors.green.withOpacity(
+                      0.2,
+                    ),
+                borderRadius:
+                    BorderRadius.circular(
+                      12,
+                    ),
+              ),
+
+              child: Text(
+
+                english,
+
+                style: const TextStyle(
+                  fontSize: 28,
+                  color:
+                      Colors.greenAccent,
+                  fontWeight:
+                      FontWeight.bold,
                 ),
               ),
             ),
@@ -147,12 +310,11 @@ class _HomePageState extends State<HomePage> {
 
             const Text(
 
-              "LIVE OCR PIPELINE\n\n"
-              "• MediaProjection capture\n"
-              "• Continuous frame extraction\n"
-              "• OCR subtitle detection\n"
-              "• English translation overlay\n"
-              "• Real-time anime subtitle support",
+              "LIVE OCR ENGINE ACTIVE\n\n"
+              "• Continuous screen frame capture\n"
+              "• Japanese OCR detection\n"
+              "• English subtitle translation\n"
+              "• Real-time subtitle updates",
 
               style: TextStyle(
                 fontSize: 16,
