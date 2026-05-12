@@ -37,23 +37,50 @@ class MainActivity : FlutterActivity() {
             METHOD_CHANNEL
         ).setMethodCallHandler { call, result ->
 
-            if (call.method == "startCapture") {
+            when (call.method) {
 
-                val manager =
-                    getSystemService(
-                        MEDIA_PROJECTION_SERVICE
-                    ) as MediaProjectionManager
+                "startCapture" -> {
 
-                startActivityForResult(
-                    manager.createScreenCaptureIntent(),
-                    REQUEST_CODE
-                )
+                    val manager =
+                        getSystemService(
+                            MEDIA_PROJECTION_SERVICE
+                        ) as MediaProjectionManager
 
-                result.success(true)
+                    startActivityForResult(
+                        manager.createScreenCaptureIntent(),
+                        REQUEST_CODE
+                    )
 
-            } else {
+                    result.success(true)
+                }
 
-                result.notImplemented()
+                "startOverlay" -> {
+
+                    val intent = Intent(
+                        this,
+                        OverlayService::class.java
+                    )
+
+                    startService(intent)
+
+                    result.success(true)
+                }
+
+                "updateOverlay" -> {
+
+                    val text =
+                        call.argument<String>("text")
+
+                    OverlayService.overlayText
+                        ?.text = text
+
+                    result.success(true)
+                }
+
+                else -> {
+
+                    result.notImplemented()
+                }
             }
         }
 
