@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:translator/translator.dart';
@@ -32,32 +33,75 @@ class _HomePageState extends State<HomePage> {
   final SpeechToText speech = SpeechToText();
   final translator = GoogleTranslator();
 
-  String japaneseText = "Waiting for Japanese speech...";
-  String englishText = "English translation will appear here";
+  static const platform =
+      MethodChannel('overlay_channel');
+
+  String japaneseText =
+      "Waiting for Japanese speech...";
+
+  String englishText =
+      "English translation will appear here";
 
   bool isListening = false;
 
   Future<void> startListening() async {
 
     await Permission.microphone.request();
+    await Permission.systemAlertWindow.request();
 
-    bool available = await speech.initialize();
+    bool available = await speech.initialize(
+      onError: (error) {
+        debugPrint("Speech Error: $error");
+      },
+      onStatus: (status) {
+        debugPrint("Speech Status: $status");
+      },
+    );
 
     if (!available) {
+
+      setState(() {
+        japaneseText =
+            "Japanese recognition unavailable";
+      });
+
       return;
     }
+
+    try {
+
+      await platform.invokeMethod(
+        'startOverlay'
+      );
+
+    } catch (_) {}
 
     setState(() {
       isListening = true;
     });
 
     speech.listen(
+
       localeId: 'ja_JP',
+
       listenMode: ListenMode.dictation,
+
       partialResults: true,
+
+      cancelOnError: false,
+
+      listenFor: const Duration(
+        minutes: 30,
+      ),
+
+      pauseFor: const Duration(
+        seconds: 10,
+      ),
+
       onResult: (result) async {
 
-        japaneseText = result.recognizedWords;
+        japaneseText =
+            result.recognizedWords;
 
         if (japaneseText.isNotEmpty) {
 
@@ -70,9 +114,19 @@ class _HomePageState extends State<HomePage> {
               to: 'en',
             );
 
-            setState(() {
-              englishText = translation.text;
-            });
+            englishText =
+                translation.text;
+
+            try {
+
+              await platform.invokeMethod(
+                'updateOverlay',
+                {
+                  "text": englishText
+                },
+              );
+
+            } catch (_) {}
 
           } catch (_) {}
         }
@@ -95,32 +149,38 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
 
     return Scaffold(
+
       backgroundColor: Colors.black,
 
       body: Padding(
+
         padding: const EdgeInsets.all(20),
 
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+
+          mainAxisAlignment:
+              MainAxisAlignment.center,
+
+          crossAxisAlignment:
+              CrossAxisAlignment.start,
+
           children: [
 
             Text(
               japaneseText,
-              textAlign: TextAlign.center,
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 24,
               ),
             ),
 
-            const SizedBox(height: 30),
+            const SizedBox(height: 20),
 
             Text(
               englishText,
-              textAlign: TextAlign.center,
               style: const TextStyle(
                 color: Colors.greenAccent,
-                fontSize: 28,
+                fontSize: 30,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -128,14 +188,15 @@ class _HomePageState extends State<HomePage> {
             const SizedBox(height: 40),
 
             ElevatedButton(
+
               onPressed: isListening
                   ? stopListening
                   : startListening,
 
               child: Text(
                 isListening
-                    ? 'STOP LISTENING'
-                    : 'START LIVE TRANSLATION',
+                    ? "STOP LISTENING"
+                    : "START LIVE TRANSLATION",
               ),
             ),
           ],
