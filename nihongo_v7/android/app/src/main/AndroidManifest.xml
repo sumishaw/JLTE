@@ -6,6 +6,7 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION"/>
 
     <application
         android:name="${applicationName}"
@@ -36,7 +37,13 @@
             android:enabled="true"
             android:exported="false" />
 
-        <!-- Flutter Embedding -->
+        <!-- Internal Audio Capture Service -->
+        <service
+            android:name=".AudioCaptureService"
+            android:foregroundServiceType="mediaProjection|microphone"
+            android:exported="false" />
+
+        <!-- Flutter embedding -->
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
