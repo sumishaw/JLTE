@@ -4,14 +4,13 @@ import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
-import android.view.accessibility.AccessibilityNodeInfo
 import io.flutter.embedding.engine.FlutterEngineCache
 import io.flutter.plugin.common.MethodChannel
 
 class CaptionAccessibilityService : AccessibilityService() {
 
     companion object {
-        var latestCaption: String = ""
+        var latestCaption = ""
     }
 
     override fun onServiceConnected() {
@@ -20,25 +19,27 @@ class CaptionAccessibilityService : AccessibilityService() {
         val info = AccessibilityServiceInfo().apply {
 
             eventTypes =
+                AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED or
                 AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED or
-                AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or
-                AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED
+                AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
 
-            feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
+            feedbackType =
+                AccessibilityServiceInfo.FEEDBACK_GENERIC
 
             flags =
+                AccessibilityServiceInfo.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS or
                 AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS or
-                AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS or
-                AccessibilityServiceInfo.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS
+                AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
 
-            notificationTimeout = 100
-
-            packageNames = null
+            notificationTimeout = 50
         }
 
         serviceInfo = info
 
-        Log.d("CaptionService", "Accessibility Service Connected")
+        Log.d(
+            "CaptionService",
+            "Accessibility connected"
+        )
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -47,21 +48,27 @@ class CaptionAccessibilityService : AccessibilityService() {
 
         try {
 
-            val rootNode = rootInActiveWindow ?: return
+            val texts = event.text
 
-            val detectedText = extractText(rootNode)
+            if (texts.isNullOrEmpty()) return
 
-            if (detectedText.isBlank()) return
+            val combinedText =
+                texts.joinToString(" ")
 
-            if (!containsJapanese(detectedText)) return
+            if (combinedText.isBlank()) return
 
-            if (detectedText == latestCaption) return
+            if (!containsJapanese(combinedText)) return
 
-            latestCaption = detectedText
+            if (combinedText == latestCaption) return
 
-            Log.d("CaptionService", "Detected: $detectedText")
+            latestCaption = combinedText
 
-            sendCaptionToFlutter(detectedText)
+            Log.d(
+                "CaptionService",
+                "Detected: $combinedText"
+            )
+
+            sendToFlutter(combinedText)
 
         } catch (e: Exception) {
 
@@ -72,44 +79,15 @@ class CaptionAccessibilityService : AccessibilityService() {
         }
     }
 
-    private fun extractText(node: AccessibilityNodeInfo?): String {
-
-        if (node == null) return ""
-
-        val builder = StringBuilder()
-
-        val text = node.text?.toString()
-
-        if (!text.isNullOrBlank()) {
-            builder.append(text).append(" ")
-        }
-
-        val contentDescription = node.contentDescription?.toString()
-
-        if (!contentDescription.isNullOrBlank()) {
-            builder.append(contentDescription).append(" ")
-        }
-
-        for (i in 0 until node.childCount) {
-
-            val child = node.getChild(i)
-
-            builder.append(extractText(child))
-        }
-
-        return builder.toString().trim()
-    }
-
     private fun containsJapanese(text: String): Boolean {
 
-        val regex = Regex(
-            "[\\u3040-\\u30FF\\u3400-\\u4DBF\\u4E00-\\u9FFF]"
-        )
+        val regex =
+            Regex("[\\u3040-\\u30FF\\u4E00-\\u9FFF]")
 
         return regex.containsMatchIn(text)
     }
 
-    private fun sendCaptionToFlutter(text: String) {
+    private fun sendToFlutter(text: String) {
 
         try {
 
@@ -118,10 +96,10 @@ class CaptionAccessibilityService : AccessibilityService() {
                     .getInstance()
                     .get("main_engine")
 
-            engine?.dartExecutor?.binaryMessenger?.let { messenger ->
+            engine?.dartExecutor?.binaryMessenger?.let {
 
                 MethodChannel(
-                    messenger,
+                    it,
                     "nihongo_lens/captions"
                 ).invokeMethod(
                     "onCaption",
@@ -133,7 +111,7 @@ class CaptionAccessibilityService : AccessibilityService() {
 
             Log.e(
                 "CaptionService",
-                "Flutter error: ${e.message}"
+                "Flutter send failed"
             )
         }
     }
