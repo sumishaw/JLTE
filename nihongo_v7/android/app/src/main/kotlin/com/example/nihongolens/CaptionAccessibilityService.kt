@@ -4,8 +4,8 @@ import android.accessibilityservice.AccessibilityService
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 
-class CaptionAccessibilityService
-    : AccessibilityService() {
+class CaptionAccessibilityService :
+    AccessibilityService() {
 
     override fun onAccessibilityEvent(
         event: AccessibilityEvent?
@@ -13,13 +13,15 @@ class CaptionAccessibilityService
 
         if (event == null) return
 
+        val rootNode =
+            rootInActiveWindow ?: return
+
         val text =
-            extractText(
-                rootInActiveWindow
-            )
+            findJapaneseText(rootNode)
 
         if (
-            text.isNotBlank()
+            text.isNotBlank() &&
+            containsJapanese(text)
         ) {
 
             MainActivity.overlayText =
@@ -27,7 +29,7 @@ class CaptionAccessibilityService
         }
     }
 
-    private fun extractText(
+    private fun findJapaneseText(
         node: AccessibilityNodeInfo?
     ): String {
 
@@ -35,34 +37,48 @@ class CaptionAccessibilityService
             return ""
         }
 
-        val builder =
-            StringBuilder()
-
         if (
             node.text != null
         ) {
 
-            builder.append(
+            val text =
                 node.text.toString()
-            )
 
-            builder.append("\n")
+            if (
+                containsJapanese(text)
+            ) {
+
+                return text
+            }
         }
 
         for (
-            i in 0 until
-                    node.childCount
+            i in 0 until node.childCount
         ) {
 
-            builder.append(
-
-                extractText(
+            val result =
+                findJapaneseText(
                     node.getChild(i)
                 )
-            )
+
+            if (
+                result.isNotBlank()
+            ) {
+
+                return result
+            }
         }
 
-        return builder.toString()
+        return ""
+    }
+
+    private fun containsJapanese(
+        text: String
+    ): Boolean {
+
+        return text.matches(
+            Regex(".*[ぁ-んァ-ン一-龯].*")
+        )
     }
 
     override fun onInterrupt() {
