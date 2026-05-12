@@ -1,9 +1,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission
+        android:name="android.permission.INTERNET"/>
 
     <uses-permission
-        android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
+        android:name=
+        "android.permission.SYSTEM_ALERT_WINDOW"/>
 
     <application
         android:label="Nihongo Lens"
@@ -49,9 +51,12 @@
         </activity>
 
         <service
-            android:name=".CaptionAccessibilityService"
+            android:name=
+            ".CaptionAccessibilityService"
+
             android:permission=
             "android.permission.BIND_ACCESSIBILITY_SERVICE"
+
             android:exported="false">
 
             <intent-filter>
@@ -64,13 +69,17 @@
             <meta-data
                 android:name=
                 "android.accessibilityservice"
+
                 android:resource=
                 "@xml/accessibility_config"/>
         </service>
 
+        <service
+            android:name=".OverlayService"
+            android:exported="false"/>
+
         <meta-data
-            android:name=
-            "flutterEmbedding"
+            android:name="flutterEmbedding"
             android:value="2"/>
     </application>
 </manifest>
