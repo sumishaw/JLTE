@@ -22,7 +22,7 @@ dependencies:
   # Permissions
   permission_handler: ^11.3.1
 
-  # Overlay window
+  # Overlay support
   flutter_overlay_window: ^0.4.4
 
 dev_dependencies:
