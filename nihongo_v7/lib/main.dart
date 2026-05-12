@@ -7,6 +7,8 @@ import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart
 
 import 'package:translator/translator.dart';
 
+import 'package:screen_capturer/screen_capturer.dart';
+
 void main() {
 
   WidgetsFlutterBinding.ensureInitialized();
@@ -102,18 +104,35 @@ class _HomePageState
 
     try {
 
-      // PLACEHOLDER:
-      // Replace later with real screenshot OCR
+      final image =
+          await ScreenCapturer.instance.capture();
 
-      final fakeJapanese =
-          "こんにちは";
+      if (image == null) {
+        return;
+      }
 
-      japaneseText =
-          fakeJapanese;
+      final inputImage =
+          InputImage.fromFilePath(
+        image.path,
+      );
+
+      final recognizedText =
+          await textRecognizer.processImage(
+        inputImage,
+      );
+
+      final text =
+          recognizedText.text.trim();
+
+      if (text.isEmpty) {
+        return;
+      }
+
+      japaneseText = text;
 
       final translation =
           await translator.translate(
-        fakeJapanese,
+        text,
         from: 'ja',
         to: 'en',
       );
@@ -140,7 +159,9 @@ class _HomePageState
 
     } catch (e) {
 
-      print(e);
+      print(
+        "OCR ERROR: $e",
+      );
     }
   }
 
