@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'package:translator/translator.dart';
+import 'package:google_translator/google_translator.dart';
 
 void main() {
 
@@ -60,6 +60,9 @@ class _HomePageState
 
   bool running = false;
 
+  String lastTranslated =
+      "";
+
   Future<void> startListening()
   async {
 
@@ -67,9 +70,18 @@ class _HomePageState
 
     running = true;
 
-    await platform.invokeMethod(
-      'requestOverlayPermission',
-    );
+    try {
+
+      await platform.invokeMethod(
+        'requestOverlayPermission',
+      );
+
+    } catch (e) {
+
+      print(
+        "PERMISSION ERROR: $e",
+      );
+    }
 
     timer = Timer.periodic(
 
@@ -82,6 +94,18 @@ class _HomePageState
         await fetchSubtitle();
       },
     );
+
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(
+
+      const SnackBar(
+
+        content: Text(
+          "Live translation started",
+        ),
+      ),
+    );
   }
 
   Future<void> fetchSubtitle()
@@ -89,51 +113,96 @@ class _HomePageState
 
     try {
 
-      final text =
+      final dynamic result =
           await platform.invokeMethod(
         'getSubtitleText',
       );
 
-      if (
-          text == null ||
-          text.toString().trim().isEmpty
-      ) {
+      if (result == null) {
         return;
       }
 
       final jp =
-          text.toString();
+          result.toString().trim();
 
-      if (
-          jp == japaneseText
-      ) {
+      if (jp.isEmpty) {
         return;
       }
 
+      if (jp == lastTranslated) {
+        return;
+      }
+
+      lastTranslated = jp;
+
       japaneseText = jp;
-
-      final translated =
-          await translator.translate(
-        jp,
-        from: 'ja',
-        to: 'en',
-      );
-
-      englishText =
-          translated.text;
-
-      await platform.invokeMethod(
-        'showOverlay',
-        {
-          "text": englishText,
-        },
-      );
 
       setState(() {});
 
+      print(
+        "JAPANESE DETECTED: $jp",
+      );
+
+      String translatedText =
+          "";
+
+      try {
+
+        translatedText =
+            await translator.translate(
+          jp,
+          from: 'ja',
+          to: 'en',
+        );
+
+      } catch (e) {
+
+        print(
+          "TRANSLATION ERROR: $e",
+        );
+
+        translatedText =
+            "Translation failed";
+      }
+
+      if (
+          translatedText.trim().isEmpty
+      ) {
+
+        translatedText =
+            "No translation";
+      }
+
+      englishText =
+          translatedText;
+
+      setState(() {});
+
+      print(
+        "ENGLISH: $englishText",
+      );
+
+      try {
+
+        await platform.invokeMethod(
+          'showOverlay',
+          {
+            "text": englishText,
+          },
+        );
+
+      } catch (e) {
+
+        print(
+          "OVERLAY ERROR: $e",
+        );
+      }
+
     } catch (e) {
 
-      print(e);
+      print(
+        "FETCH ERROR: $e",
+      );
     }
   }
 
@@ -153,72 +222,160 @@ class _HomePageState
       backgroundColor:
       Colors.black,
 
-      body: Padding(
+      body: SafeArea(
 
-        padding:
-        const EdgeInsets.all(
-          20,
-        ),
+        child: Padding(
 
-        child: Column(
+          padding:
+          const EdgeInsets.all(
+            20,
+          ),
 
-          mainAxisAlignment:
-          MainAxisAlignment.center,
+          child: Column(
 
-          crossAxisAlignment:
-          CrossAxisAlignment.start,
+            crossAxisAlignment:
+            CrossAxisAlignment.start,
 
-          children: [
+            mainAxisAlignment:
+            MainAxisAlignment.center,
 
-            Text(
+            children: [
 
-              japaneseText,
+              const Text(
 
-              style:
-              const TextStyle(
+                "Japanese Subtitle",
 
-                color:
-                Colors.white,
+                style: TextStyle(
 
-                fontSize: 24,
+                  color:
+                  Colors.white70,
+
+                  fontSize: 18,
+                ),
               ),
-            ),
 
-            const SizedBox(
-              height: 30,
-            ),
-
-            Text(
-
-              englishText,
-
-              style:
-              const TextStyle(
-
-                color:
-                Colors.greenAccent,
-
-                fontSize: 34,
-
-                fontWeight:
-                FontWeight.bold,
+              const SizedBox(
+                height: 10,
               ),
-            ),
 
-            const SizedBox(
-              height: 50,
-            ),
+              Container(
 
-            ElevatedButton(
+                width: double.infinity,
 
-              onPressed:
-              startListening,
+                padding:
+                const EdgeInsets.all(
+                  16,
+                ),
 
-              child: const Text(
-                "START LIVE TRANSLATION",
+                decoration:
+                BoxDecoration(
+
+                  color:
+                  Colors.white10,
+
+                  borderRadius:
+                  BorderRadius.circular(
+                    16,
+                  ),
+                ),
+
+                child: Text(
+
+                  japaneseText,
+
+                  style:
+                  const TextStyle(
+
+                    color:
+                    Colors.white,
+
+                    fontSize: 24,
+                  ),
+                ),
               ),
-            ),
-          ],
+
+              const SizedBox(
+                height: 40,
+              ),
+
+              const Text(
+
+                "English Translation",
+
+                style: TextStyle(
+
+                  color:
+                  Colors.greenAccent,
+
+                  fontSize: 18,
+                ),
+              ),
+
+              const SizedBox(
+                height: 10,
+              ),
+
+              Container(
+
+                width: double.infinity,
+
+                padding:
+                const EdgeInsets.all(
+                  16,
+                ),
+
+                decoration:
+                BoxDecoration(
+
+                  color:
+                  Colors.green
+                      .withOpacity(
+                    0.15,
+                  ),
+
+                  borderRadius:
+                  BorderRadius.circular(
+                    16,
+                  ),
+                ),
+
+                child: Text(
+
+                  englishText,
+
+                  style:
+                  const TextStyle(
+
+                    color:
+                    Colors.greenAccent,
+
+                    fontSize: 30,
+
+                    fontWeight:
+                    FontWeight.bold,
+                  ),
+                ),
+              ),
+
+              const SizedBox(
+                height: 50,
+              ),
+
+              Center(
+
+                child:
+                ElevatedButton(
+
+                  onPressed:
+                  startListening,
+
+                  child: const Text(
+                    "START LIVE TRANSLATION",
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
