@@ -12,7 +12,11 @@ import android.widget.TextView
 class OverlayService : Service() {
 
     private lateinit var windowManager: WindowManager
-    private lateinit var overlayText: TextView
+    private lateinit var subtitleView: TextView
+
+    companion object {
+        var latestSubtitle: String = "Waiting for translation..."
+    }
 
     override fun onStartCommand(
         intent: Intent?,
@@ -24,10 +28,10 @@ class OverlayService : Service() {
             getSystemService(WINDOW_SERVICE)
                     as WindowManager
 
-        overlayText = TextView(this).apply {
+        subtitleView = TextView(this).apply {
 
-            text = "Japanese captions will appear here"
-            textSize = 20f
+            text = latestSubtitle
+            textSize = 22f
 
             setTextColor(android.graphics.Color.WHITE)
 
@@ -40,7 +44,7 @@ class OverlayService : Service() {
                 )
             )
 
-            setPadding(30, 20, 30, 20)
+            setPadding(40, 20, 40, 20)
         }
 
         val params = WindowManager.LayoutParams(
@@ -53,14 +57,26 @@ class OverlayService : Service() {
                 WindowManager.LayoutParams.TYPE_PHONE,
 
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
-
             PixelFormat.TRANSLUCENT
         )
 
         params.gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
         params.y = 200
 
-        windowManager.addView(overlayText, params)
+        windowManager.addView(subtitleView, params)
+
+        Thread {
+
+            while (true) {
+
+                Thread.sleep(500)
+
+                subtitleView.post {
+                    subtitleView.text = latestSubtitle
+                }
+            }
+
+        }.start()
 
         return START_STICKY
     }
@@ -70,7 +86,7 @@ class OverlayService : Service() {
         super.onDestroy()
 
         try {
-            windowManager.removeView(overlayText)
+            windowManager.removeView(subtitleView)
         } catch (_: Exception) {
         }
     }
