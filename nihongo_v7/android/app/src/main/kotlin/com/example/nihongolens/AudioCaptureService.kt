@@ -12,9 +12,12 @@ import android.media.AudioRecord
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.Build
+import android.os.Environment
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import java.io.File
+import java.io.FileOutputStream
 
 class AudioCaptureService : Service() {
 
@@ -36,6 +39,7 @@ class AudioCaptureService : Service() {
             intent?.getParcelableExtra<Intent>("data")
 
         if (resultCode == -1 || data == null) {
+
             stopSelf()
             return START_NOT_STICKY
         }
@@ -99,7 +103,23 @@ class AudioCaptureService : Service() {
 
                 val buffer = ByteArray(bufferSize)
 
-                while (true) {
+                val outputDir =
+                    getExternalFilesDir(null)
+
+                val outputFile =
+                    File(outputDir, "capture.pcm")
+
+                val outputStream =
+                    FileOutputStream(outputFile)
+
+                Log.d(
+                    "PCM_CAPTURE",
+                    "Saving PCM to: ${outputFile.absolutePath}"
+                )
+
+                var totalBytes = 0
+
+                while (totalBytes < 44100 * 2 * 20) {
 
                     val read =
                         audioRecord?.read(
@@ -110,19 +130,35 @@ class AudioCaptureService : Service() {
 
                     if (read > 0) {
 
+                        outputStream.write(
+                            buffer,
+                            0,
+                            read
+                        )
+
+                        totalBytes += read
+
                         Log.d(
-                            "INTERNAL_AUDIO",
-                            "Captured: $read bytes"
+                            "PCM_CAPTURE",
+                            "Captured: $totalBytes bytes"
                         )
                     }
                 }
+
+                outputStream.flush()
+                outputStream.close()
+
+                Log.d(
+                    "PCM_CAPTURE",
+                    "PCM capture complete"
+                )
 
             }.start()
 
         } catch (e: Exception) {
 
             Log.e(
-                "INTERNAL_AUDIO",
+                "PCM_CAPTURE",
                 "Capture error: ${e.message}"
             )
         }
