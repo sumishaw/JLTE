@@ -51,7 +51,9 @@ class MainActivity : FlutterActivity() {
                     if (
                         Build.VERSION.SDK_INT >=
                         Build.VERSION_CODES.M &&
-                        !Settings.canDrawOverlays(this)
+                        !Settings.canDrawOverlays(
+                            this
+                        )
                     ) {
 
                         val intent = Intent(
@@ -63,6 +65,29 @@ class MainActivity : FlutterActivity() {
 
                         startActivity(intent)
                     }
+
+                    result.success(true)
+                }
+
+                "showOverlay" -> {
+
+                    val text =
+                        call.argument<String>(
+                            "text"
+                        ) ?: ""
+
+                    val intent =
+                        Intent(
+                            this,
+                            OverlayService::class.java
+                        )
+
+                    intent.putExtra(
+                        "text",
+                        text
+                    )
+
+                    startService(intent)
 
                     result.success(true)
                 }
