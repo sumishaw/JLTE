@@ -1,10 +1,8 @@
 import 'dart:async';
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:google_mlkit_translation/google_mlkit_translation.dart';
-import 'package:image_picker/image_picker.dart';
 
 void main() {
   runApp(const MyApp());
@@ -31,101 +29,29 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
 
-  String japaneseText =
-      "No Japanese subtitle detected";
+  static const platform =
+      MethodChannel('nihongo_lens/capture');
 
-  String englishText =
-      "No English translation";
-
-  bool loading = false;
-
-  final textRecognizer =
-      TextRecognizer(
-        script: TextRecognitionScript.japanese,
-      );
+  final recognizer = TextRecognizer(
+    script: TextRecognitionScript.japanese,
+  );
 
   final translator = OnDeviceTranslator(
     sourceLanguage: TranslateLanguage.japanese,
     targetLanguage: TranslateLanguage.english,
   );
 
-  Future<void> pickAndTranslateImage() async {
+  String japanese = 'Waiting for subtitles...';
+  String english = 'Waiting for translation...';
 
-    try {
+  Future<void> startCapture() async {
 
-      final picker = ImagePicker();
+    await platform.invokeMethod('startCapture');
 
-      final XFile? image =
-          await picker.pickImage(
-            source: ImageSource.gallery,
-          );
-
-      if (image == null) return;
-
-      setState(() {
-        loading = true;
-      });
-
-      final inputImage =
-          InputImage.fromFilePath(image.path);
-
-      final RecognizedText recognizedText =
-          await textRecognizer.processImage(
-            inputImage,
-          );
-
-      final jpText =
-          recognizedText.text.trim();
-
-      if (jpText.isEmpty) {
-
-        setState(() {
-
-          japaneseText =
-              "No Japanese subtitle found";
-
-          englishText =
-              "Translation unavailable";
-
-          loading = false;
-        });
-
-        return;
-      }
-
-      final translated =
-          await translator.translateText(jpText);
-
-      setState(() {
-
-        japaneseText = jpText;
-
-        englishText = translated;
-
-        loading = false;
-      });
-
-    } catch (e) {
-
-      setState(() {
-
-        japaneseText = "OCR failed";
-
-        englishText = e.toString();
-
-        loading = false;
-      });
-    }
-  }
-
-  @override
-  void dispose() {
-
-    textRecognizer.close();
-
-    translator.close();
-
-    super.dispose();
+    setState(() {
+      japanese = 'Screen capture started';
+      english = 'OCR pipeline ready';
+    });
   }
 
   @override
@@ -135,52 +61,45 @@ class _HomePageState extends State<HomePage> {
       backgroundColor: Colors.black,
 
       appBar: AppBar(
+        title: const Text('Nihongo Lens Live OCR'),
         backgroundColor: Colors.black,
-        title: const Text(
-          "Nihongo Lens OCR",
-        ),
       ),
 
       floatingActionButton: FloatingActionButton(
-        onPressed: pickAndTranslateImage,
-        child: const Icon(Icons.image),
+        onPressed: startCapture,
+        child: const Icon(Icons.play_arrow),
       ),
 
       body: Padding(
         padding: const EdgeInsets.all(20),
 
         child: Column(
-          crossAxisAlignment:
-              CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.start,
 
           children: [
 
             const Text(
-              "Japanese Subtitle",
+              'Japanese Subtitle',
               style: TextStyle(
                 color: Colors.white70,
                 fontSize: 18,
               ),
             ),
 
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
 
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(16),
-
               decoration: BoxDecoration(
                 color: Colors.white10,
-                borderRadius:
-                    BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(12),
               ),
-
               child: Text(
-                japaneseText,
-
+                japanese,
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 28,
+                  fontSize: 24,
                 ),
               ),
             ),
@@ -188,52 +107,40 @@ class _HomePageState extends State<HomePage> {
             const SizedBox(height: 30),
 
             const Text(
-              "English Translation",
+              'English Translation',
               style: TextStyle(
                 color: Colors.greenAccent,
                 fontSize: 18,
               ),
             ),
 
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
 
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(16),
-
               decoration: BoxDecoration(
                 color: Colors.green.withOpacity(0.2),
-                borderRadius:
-                    BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(12),
               ),
-
               child: Text(
-                englishText,
-
+                english,
                 style: const TextStyle(
                   color: Colors.greenAccent,
-                  fontSize: 30,
+                  fontSize: 28,
                   fontWeight: FontWeight.bold,
                 ),
               ),
             ),
 
-            const SizedBox(height: 40),
-
-            if (loading)
-              const Center(
-                child: CircularProgressIndicator(),
-              ),
-
             const Spacer(),
 
             const Text(
-              "Tap image button and select screenshot with Japanese subtitles.",
+              'Press play button to start live OCR capture.',
               style: TextStyle(
                 color: Colors.white54,
-                fontSize: 16,
               ),
-            ),
+            )
           ],
         ),
       ),
