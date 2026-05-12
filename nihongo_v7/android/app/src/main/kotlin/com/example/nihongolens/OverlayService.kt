@@ -2,9 +2,12 @@ package com.example.nihongolens
 
 import android.app.Service
 import android.content.Intent
+import android.graphics.Color
 import android.graphics.PixelFormat
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -25,6 +28,12 @@ class OverlayService : Service() {
     private lateinit var textView:
         TextView
 
+    private val handler =
+        Handler(Looper.getMainLooper())
+
+    private var hideRunnable:
+        Runnable? = null
+
     override fun onCreate() {
 
         super.onCreate()
@@ -41,20 +50,22 @@ class OverlayService : Service() {
 
         textView.textSize = 24f
 
-        textView.setPadding(
-            30,
-            20,
-            30,
-            20
+        textView.setTextColor(
+            Color.WHITE
         )
 
-        textView.setTextColor(
-            android.graphics.Color.WHITE
+        textView.setPadding(
+            40,
+            25,
+            40,
+            25
         )
 
         textView.setBackgroundColor(
-            0x88000000.toInt()
+            0xAA000000.toInt()
         )
+
+        textView.alpha = 0.95f
 
         val params =
             WindowManager.LayoutParams(
@@ -79,17 +90,20 @@ class OverlayService : Service() {
                         .TYPE_PHONE,
 
                 WindowManager.LayoutParams
-                    .FLAG_NOT_FOCUSABLE,
+                    .FLAG_NOT_FOCUSABLE
+                    or
+                    WindowManager.LayoutParams
+                        .FLAG_LAYOUT_NO_LIMITS,
 
                 PixelFormat.TRANSLUCENT
             )
 
         params.gravity =
-            Gravity.TOP or Gravity.CENTER_HORIZONTAL
+            Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
 
         params.x = 0
 
-        params.y = 200
+        params.y = 220
 
         textView.setOnTouchListener(
 
@@ -162,6 +176,35 @@ class OverlayService : Service() {
         )
 
         overlayText = textView
+    }
+
+    fun updateSubtitle(
+        text: String
+    ) {
+
+        handler.post {
+
+            overlayText?.visibility =
+                View.VISIBLE
+
+            overlayText?.text = text
+
+            hideRunnable?.let {
+
+                handler.removeCallbacks(it)
+            }
+
+            hideRunnable = Runnable {
+
+                overlayText?.visibility =
+                    View.INVISIBLE
+            }
+
+            handler.postDelayed(
+                hideRunnable!!,
+                4000
+            )
+        }
     }
 
     override fun onDestroy() {
