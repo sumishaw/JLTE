@@ -15,7 +15,6 @@ import android.media.ImageReader
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.Build
-import android.os.Environment
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
@@ -176,7 +175,7 @@ class ScreenCaptureService : Service() {
 
             Log.d(
                 "CaptureService",
-                "Frame saved"
+                "Live frame captured"
             )
 
         } catch (e: Exception) {
@@ -196,9 +195,7 @@ class ScreenCaptureService : Service() {
 
             val dir =
                 File(
-                    getExternalFilesDir(
-                        null
-                    ),
+                    filesDir,
                     "captures"
                 )
 
@@ -224,6 +221,11 @@ class ScreenCaptureService : Service() {
             stream.flush()
 
             stream.close()
+
+            Log.d(
+                "CaptureService",
+                "Live frame saved successfully"
+            )
 
         } catch (e: Exception) {
 
