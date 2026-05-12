@@ -9,7 +9,6 @@ import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioPlaybackCaptureConfiguration
 import android.media.AudioRecord
-import android.media.MediaRecorder
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.Build
@@ -21,7 +20,6 @@ class AudioCaptureService : Service() {
 
     private var mediaProjection: MediaProjection? = null
     private var audioRecord: AudioRecord? = null
-    private var isRunning = false
 
     override fun onStartCommand(
         intent: Intent?,
@@ -29,7 +27,7 @@ class AudioCaptureService : Service() {
         startId: Int
     ): Int {
 
-        startForegroundNotification()
+        createNotification()
 
         val resultCode =
             intent?.getIntExtra("resultCode", -1) ?: -1
@@ -38,44 +36,26 @@ class AudioCaptureService : Service() {
             intent?.getParcelableExtra<Intent>("data")
 
         if (resultCode == -1 || data == null) {
-
-            Log.e(
-                "AUDIO_CAPTURE",
-                "MediaProjection permission missing"
-            )
-
             stopSelf()
             return START_NOT_STICKY
         }
 
-        try {
+        val projectionManager =
+            getSystemService(MEDIA_PROJECTION_SERVICE)
+                    as MediaProjectionManager
 
-            val projectionManager =
-                getSystemService(MEDIA_PROJECTION_SERVICE)
-                        as MediaProjectionManager
-
-            mediaProjection =
-                projectionManager.getMediaProjection(
-                    resultCode,
-                    data
-                )
-
-            startAudioCapture()
-
-        } catch (e: Exception) {
-
-            Log.e(
-                "AUDIO_CAPTURE",
-                "Projection error: ${e.message}"
+        mediaProjection =
+            projectionManager.getMediaProjection(
+                resultCode,
+                data
             )
 
-            stopSelf()
-        }
+        startCapture()
 
         return START_STICKY
     }
 
-    private fun startAudioCapture() {
+    private fun startCapture() {
 
         try {
 
@@ -85,136 +65,55 @@ class AudioCaptureService : Service() {
                 )
                     .addMatchingUsage(AudioAttributes.USAGE_MEDIA)
                     .addMatchingUsage(AudioAttributes.USAGE_GAME)
-                    .addMatchingUsage(AudioAttributes.USAGE_UNKNOWN)
                     .build()
 
             val sampleRate = 44100
 
-            val channelConfig =
-                AudioFormat.CHANNEL_IN_MONO
-
-            val audioFormat =
-                AudioFormat.ENCODING_PCM_16BIT
-
             val bufferSize =
                 AudioRecord.getMinBufferSize(
                     sampleRate,
-                    channelConfig,
-                    audioFormat
+                    AudioFormat.CHANNEL_IN_MONO,
+                    AudioFormat.ENCODING_PCM_16BIT
                 )
-
-            if (bufferSize == AudioRecord.ERROR ||
-                bufferSize == AudioRecord.ERROR_BAD_VALUE
-            ) {
-
-                Log.e(
-                    "AUDIO_CAPTURE",
-                    "Invalid buffer size"
-                )
-
-                stopSelf()
-                return
-            }
 
             audioRecord =
                 AudioRecord.Builder()
                     .setAudioFormat(
                         AudioFormat.Builder()
-                            .setEncoding(audioFormat)
+                            .setEncoding(
+                                AudioFormat.ENCODING_PCM_16BIT
+                            )
                             .setSampleRate(sampleRate)
-                            .setChannelMask(channelConfig)
+                            .setChannelMask(
+                                AudioFormat.CHANNEL_IN_MONO
+                            )
                             .build()
                     )
                     .setBufferSizeInBytes(bufferSize * 2)
                     .setAudioPlaybackCaptureConfig(config)
                     .build()
 
-            if (audioRecord?.state != AudioRecord.STATE_INITIALIZED) {
-
-                Log.e(
-                    "AUDIO_CAPTURE",
-                    "AudioRecord initialization failed"
-                )
-
-                stopSelf()
-                return
-            }
-
-            try {
-
-                audioRecord?.startRecording()
-
-                if (
-                    audioRecord?.recordingState
-                    != AudioRecord.RECORDSTATE_RECORDING
-                ) {
-
-                    Log.e(
-                        "AUDIO_CAPTURE",
-                        "Recording failed to start"
-                    )
-
-                    stopSelf()
-                    return
-                }
-
-            } catch (e: Exception) {
-
-                Log.e(
-                    "AUDIO_CAPTURE",
-                    "startRecording crash: ${e.message}"
-                )
-
-                stopSelf()
-                return
-            }
-
-            Log.d(
-                "AUDIO_CAPTURE",
-                "Audio capture started successfully"
-            )
-
-            isRunning = true
+            audioRecord?.startRecording()
 
             Thread {
 
                 val buffer = ByteArray(bufferSize)
 
-                while (
-                    isRunning &&
-                    audioRecord != null &&
-                    audioRecord?.recordingState ==
-                    AudioRecord.RECORDSTATE_RECORDING
-                ) {
+                while (true) {
 
-                    try {
+                    val read =
+                        audioRecord?.read(
+                            buffer,
+                            0,
+                            buffer.size
+                        ) ?: 0
 
-                        val read =
-                            audioRecord?.read(
-                                buffer,
-                                0,
-                                buffer.size
-                            ) ?: 0
+                    if (read > 0) {
 
-                        if (read > 0) {
-
-                            Log.d(
-                                "AUDIO_LEVEL",
-                                "VOICE DETECTED: $read bytes"
-                            )
-
-                            // TODO:
-                            // Speech recognition pipeline here
-                        }
-
-                    } catch (e: Exception) {
-
-                        Log.e(
-                            "AUDIO_CAPTURE",
-                            "Read error: ${e.message}"
+                        Log.d(
+                            "INTERNAL_AUDIO",
+                            "Captured: $read bytes"
                         )
-
-                        break
                     }
                 }
 
@@ -223,25 +122,21 @@ class AudioCaptureService : Service() {
         } catch (e: Exception) {
 
             Log.e(
-                "AUDIO_CAPTURE",
-                "Audio capture error: ${e.message}"
+                "INTERNAL_AUDIO",
+                "Capture error: ${e.message}"
             )
-
-            e.printStackTrace()
-
-            stopSelf()
         }
     }
 
-    private fun startForegroundNotification() {
+    private fun createNotification() {
 
-        val channelId = "nihongo_audio_capture"
+        val channelId = "audio_capture"
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
 
             val channel = NotificationChannel(
                 channelId,
-                "Audio Capture Service",
+                "Audio Capture",
                 NotificationManager.IMPORTANCE_LOW
             )
 
@@ -254,33 +149,11 @@ class AudioCaptureService : Service() {
         val notification: Notification =
             NotificationCompat.Builder(this, channelId)
                 .setContentTitle("Nihongo Lens")
-                .setContentText("Listening to internal audio...")
+                .setContentText("Capturing internal audio...")
                 .setSmallIcon(android.R.drawable.ic_btn_speak_now)
-                .setOngoing(true)
                 .build()
 
-        startForeground(101, notification)
-    }
-
-    override fun onDestroy() {
-
-        super.onDestroy()
-
-        isRunning = false
-
-        try {
-
-            audioRecord?.stop()
-            audioRecord?.release()
-            audioRecord = null
-
-            mediaProjection?.stop()
-            mediaProjection = null
-
-        } catch (e: Exception) {
-
-            e.printStackTrace()
-        }
+        startForeground(1, notification)
     }
 
     override fun onBind(intent: Intent?): IBinder? {
