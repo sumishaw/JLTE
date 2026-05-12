@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import 'package:google_mlkit_translation/google_mlkit_translation.dart';
+import 'package:image_picker/image_picker.dart';
 
 void main() {
   runApp(const MyApp());
@@ -28,48 +31,101 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
 
-  static const platform =
-      MethodChannel('nihongo_lens/captions');
-
   String japaneseText =
-      "Waiting for Japanese subtitles...";
+      "No Japanese subtitle detected";
 
   String englishText =
-      "Waiting for English translation...";
+      "No English translation";
 
-  @override
-  void initState() {
-    super.initState();
+  bool loading = false;
 
-    platform.setMethodCallHandler(_handleMethod);
-  }
+  final textRecognizer =
+      TextRecognizer(
+        script: TextRecognitionScript.japanese,
+      );
 
-  Future<void> _handleMethod(MethodCall call) async {
+  final translator = OnDeviceTranslator(
+    sourceLanguage: TranslateLanguage.japanese,
+    targetLanguage: TranslateLanguage.english,
+  );
 
-    if (call.method == "onCaption") {
+  Future<void> pickAndTranslateImage() async {
 
-      final text = call.arguments.toString();
+    try {
+
+      final picker = ImagePicker();
+
+      final XFile? image =
+          await picker.pickImage(
+            source: ImageSource.gallery,
+          );
+
+      if (image == null) return;
+
+      setState(() {
+        loading = true;
+      });
+
+      final inputImage =
+          InputImage.fromFilePath(image.path);
+
+      final RecognizedText recognizedText =
+          await textRecognizer.processImage(
+            inputImage,
+          );
+
+      final jpText =
+          recognizedText.text.trim();
+
+      if (jpText.isEmpty) {
+
+        setState(() {
+
+          japaneseText =
+              "No Japanese subtitle found";
+
+          englishText =
+              "Translation unavailable";
+
+          loading = false;
+        });
+
+        return;
+      }
+
+      final translated =
+          await translator.translateText(jpText);
 
       setState(() {
 
-        japaneseText = text;
+        japaneseText = jpText;
 
-        englishText = fakeTranslate(text);
+        englishText = translated;
+
+        loading = false;
+      });
+
+    } catch (e) {
+
+      setState(() {
+
+        japaneseText = "OCR failed";
+
+        englishText = e.toString();
+
+        loading = false;
       });
     }
   }
 
-  String fakeTranslate(String text) {
+  @override
+  void dispose() {
 
-    if (text.contains("うん")) {
-      return "Yeah.";
-    }
+    textRecognizer.close();
 
-    if (text.contains("大事")) {
-      return "Take good care of it.";
-    }
+    translator.close();
 
-    return "English translation coming soon...";
+    super.dispose();
   }
 
   @override
@@ -77,15 +133,26 @@ class _HomePageState extends State<HomePage> {
 
     return Scaffold(
       backgroundColor: Colors.black,
+
       appBar: AppBar(
-        title: const Text("Nihongo Lens"),
         backgroundColor: Colors.black,
+        title: const Text(
+          "Nihongo Lens OCR",
+        ),
       ),
+
+      floatingActionButton: FloatingActionButton(
+        onPressed: pickAndTranslateImage,
+        child: const Icon(Icons.image),
+      ),
+
       body: Padding(
         padding: const EdgeInsets.all(20),
+
         child: Column(
           crossAxisAlignment:
               CrossAxisAlignment.start,
+
           children: [
 
             const Text(
@@ -101,16 +168,19 @@ class _HomePageState extends State<HomePage> {
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(16),
+
               decoration: BoxDecoration(
                 color: Colors.white10,
                 borderRadius:
-                    BorderRadius.circular(12),
+                    BorderRadius.circular(14),
               ),
+
               child: Text(
                 japaneseText,
+
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 26,
+                  fontSize: 28,
                 ),
               ),
             ),
@@ -130,18 +200,38 @@ class _HomePageState extends State<HomePage> {
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(16),
+
               decoration: BoxDecoration(
                 color: Colors.green.withOpacity(0.2),
                 borderRadius:
-                    BorderRadius.circular(12),
+                    BorderRadius.circular(14),
               ),
+
               child: Text(
                 englishText,
+
                 style: const TextStyle(
                   color: Colors.greenAccent,
                   fontSize: 30,
                   fontWeight: FontWeight.bold,
                 ),
+              ),
+            ),
+
+            const SizedBox(height: 40),
+
+            if (loading)
+              const Center(
+                child: CircularProgressIndicator(),
+              ),
+
+            const Spacer(),
+
+            const Text(
+              "Tap image button and select screenshot with Japanese subtitles.",
+              style: TextStyle(
+                color: Colors.white54,
+                fontSize: 16,
               ),
             ),
           ],
