@@ -111,9 +111,16 @@ class _HomePageState
         return;
       }
 
+      final imagePath =
+          image.imagePath;
+
+      if (imagePath == null) {
+        return;
+      }
+
       final inputImage =
           InputImage.fromFilePath(
-        image.path,
+        imagePath,
       );
 
       final recognizedText =
