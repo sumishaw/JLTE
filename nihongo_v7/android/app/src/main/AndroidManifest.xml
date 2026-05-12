@@ -3,11 +3,8 @@
 
     <!-- Permissions -->
     <uses-permission android:name="android.permission.INTERNET"/>
-    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION"/>
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 
     <application
         android:name="${applicationName}"
@@ -15,7 +12,7 @@
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true">
 
-        <!-- Main Flutter Activity -->
+        <!-- Main Activity -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -32,7 +29,13 @@
 
         </activity>
 
-        <!-- Flutter embedding -->
+        <!-- Overlay Service -->
+        <service
+            android:name=".OverlayService"
+            android:enabled="true"
+            android:exported="false" />
+
+        <!-- Flutter Embedding -->
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
