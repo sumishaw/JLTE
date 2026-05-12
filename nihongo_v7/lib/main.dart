@@ -3,38 +3,54 @@ import 'package:flutter/services.dart';
 import 'package:translator/translator.dart';
 
 void main() {
+
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const MyApp());
+
+  runApp(
+    const MyApp(),
+  );
 }
 
 class MyApp extends StatelessWidget {
+
   const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
+
     return MaterialApp(
+
       debugShowCheckedModeBanner: false,
+
       home: const HomePage(),
     );
   }
 }
 
 class HomePage extends StatefulWidget {
+
   const HomePage({super.key});
 
   @override
-  State<HomePage> createState() => _HomePageState();
+  State<HomePage> createState() =>
+      _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState
+    extends State<HomePage> {
 
-  final translator = GoogleTranslator();
+  final translator =
+      GoogleTranslator();
 
   static const platform =
-      MethodChannel('overlay_channel');
+      MethodChannel(
+        'overlay_channel',
+      );
 
   static const whisperChannel =
-      MethodChannel('whisper_channel');
+      MethodChannel(
+        'whisper_channel',
+      );
 
   String japaneseText =
       "Waiting for Japanese transcription...";
@@ -50,14 +66,23 @@ class _HomePageState extends State<HomePage> {
     whisperChannel.setMethodCallHandler(
       (call) async {
 
-        if (call.method == "onTranscription") {
+        try {
 
-          final japanese =
-              call.arguments.toString();
+          if (call.method ==
+              "onTranscription") {
 
-          japaneseText = japanese;
+            final japanese =
+                call.arguments.toString();
 
-          try {
+            print(
+              "Japanese: $japanese",
+            );
+
+            setState(() {
+
+              japaneseText =
+                  japanese;
+            });
 
             final translation =
                 await translator.translate(
@@ -66,23 +91,39 @@ class _HomePageState extends State<HomePage> {
               to: 'en',
             );
 
-            englishText =
-                translation.text;
+            print(
+              "English: ${translation.text}",
+            );
 
-            setState(() {});
+            setState(() {
+
+              englishText =
+                  translation.text;
+            });
 
             try {
 
               await platform.invokeMethod(
                 'updateOverlay',
                 {
-                  "text": englishText
+                  "text":
+                      englishText
                 },
               );
 
-            } catch (_) {}
+            } catch (e) {
 
-          } catch (_) {}
+              print(
+                "Overlay update error: $e",
+              );
+            }
+          }
+
+        } catch (e) {
+
+          print(
+            "Translation error: $e",
+          );
         }
       },
     );
@@ -92,15 +133,38 @@ class _HomePageState extends State<HomePage> {
 
     try {
 
-      await platform.invokeMethod(
-        'startOverlay'
+      print(
+        "Starting overlay...",
       );
 
-      await platform.invokeMethod(
-        'startInternalAudioCapture'
+      final overlay =
+          await platform.invokeMethod(
+        'startOverlay',
       );
 
-    } catch (_) {}
+      print(
+        "Overlay result: $overlay",
+      );
+
+      print(
+        "Starting internal audio capture...",
+      );
+
+      final capture =
+          await platform.invokeMethod(
+        'startInternalAudioCapture',
+      );
+
+      print(
+        "Capture result: $capture",
+      );
+
+    } catch (e) {
+
+      print(
+        "ERROR: $e",
+      );
+    }
   }
 
   @override
@@ -108,49 +172,75 @@ class _HomePageState extends State<HomePage> {
 
     return Scaffold(
 
-      backgroundColor: Colors.black,
+      backgroundColor:
+          Colors.black,
 
       body: Padding(
 
-        padding: const EdgeInsets.all(20),
+        padding:
+            const EdgeInsets.all(
+          20,
+        ),
 
         child: Column(
 
           mainAxisAlignment:
-              MainAxisAlignment.center,
+              MainAxisAlignment
+                  .center,
 
           crossAxisAlignment:
-              CrossAxisAlignment.start,
+              CrossAxisAlignment
+                  .start,
 
           children: [
 
             Text(
+
               japaneseText,
-              style: const TextStyle(
-                color: Colors.white,
+
+              style:
+                  const TextStyle(
+
+                color:
+                    Colors.white,
+
                 fontSize: 24,
               ),
             ),
 
-            const SizedBox(height: 20),
+            const SizedBox(
+              height: 20,
+            ),
 
             Text(
+
               englishText,
-              style: const TextStyle(
-                color: Colors.greenAccent,
+
+              style:
+                  const TextStyle(
+
+                color: Colors
+                    .greenAccent,
+
                 fontSize: 30,
-                fontWeight: FontWeight.bold,
+
+                fontWeight:
+                    FontWeight
+                        .bold,
               ),
             ),
 
-            const SizedBox(height: 40),
+            const SizedBox(
+              height: 40,
+            ),
 
             ElevatedButton(
 
-              onPressed: startCapture,
+              onPressed:
+                  startCapture,
 
               child: const Text(
-                "START LIVE TRANSLATION"
+                "START LIVE TRANSLATION",
               ),
             ),
           ],
