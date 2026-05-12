@@ -17,44 +17,52 @@ class MainActivity : FlutterActivity() {
     private val CHANNEL = "com.example.nihongolens/services"
     private val REQUEST_MEDIA_PROJECTION = 1001
 
-    private var pendingResult: MethodChannel.Result? = null
     private lateinit var mediaProjectionManager: MediaProjectionManager
+    private var pendingResult: MethodChannel.Result? = null
 
-    override fun configureFlutterEngine(@NonNull flutterEngine: FlutterEngine) {
+    override fun configureFlutterEngine(
+        @NonNull flutterEngine: FlutterEngine
+    ) {
         super.configureFlutterEngine(flutterEngine)
 
         mediaProjectionManager =
-            getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+            getSystemService(MEDIA_PROJECTION_SERVICE)
+                    as MediaProjectionManager
 
         MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
             CHANNEL
         ).setMethodCallHandler { call, result ->
 
-            if (call.method == "startOverlay") {
+            when (call.method) {
 
-                if (!Settings.canDrawOverlays(this)) {
-                    val intent = Intent(
-                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                        Uri.parse("package:$packageName")
+                "startOverlay" -> {
+
+                    if (!Settings.canDrawOverlays(this)) {
+
+                        val intent = Intent(
+                            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                            Uri.parse("package:$packageName")
+                        )
+
+                        startActivity(intent)
+
+                        result.success(false)
+                        return@setMethodCallHandler
+                    }
+
+                    pendingResult = result
+
+                    val captureIntent =
+                        mediaProjectionManager.createScreenCaptureIntent()
+
+                    startActivityForResult(
+                        captureIntent,
+                        REQUEST_MEDIA_PROJECTION
                     )
-                    startActivity(intent)
-                    result.success(false)
-                    return@setMethodCallHandler
                 }
 
-                pendingResult = result
-
-                val captureIntent =
-                    mediaProjectionManager.createScreenCaptureIntent()
-
-                startActivityForResult(
-                    captureIntent,
-                    REQUEST_MEDIA_PROJECTION
-                )
-
-            } else {
-                result.notImplemented()
+                else -> result.notImplemented()
             }
         }
     }
@@ -70,15 +78,27 @@ class MainActivity : FlutterActivity() {
 
             if (resultCode == Activity.RESULT_OK && data != null) {
 
-                val intent = Intent(this, OverlayService::class.java)
+                // START AUDIO CAPTURE SERVICE
+                val audioIntent =
+                    Intent(this, AudioCaptureService::class.java)
 
-                intent.putExtra("resultCode", resultCode)
-                intent.putExtra("data", data)
+                audioIntent.putExtra("resultCode", resultCode)
+                audioIntent.putExtra("data", data)
 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    startForegroundService(intent)
+                    startForegroundService(audioIntent)
                 } else {
-                    startService(intent)
+                    startService(audioIntent)
+                }
+
+                // START OVERLAY SERVICE
+                val overlayIntent =
+                    Intent(this, OverlayService::class.java)
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    startForegroundService(overlayIntent)
+                } else {
+                    startService(overlayIntent)
                 }
 
                 pendingResult?.success(true)
