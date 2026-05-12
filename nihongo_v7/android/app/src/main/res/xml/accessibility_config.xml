@@ -20,8 +20,4 @@
         flagRetrieveInteractiveWindows|
         flagIncludeNotImportantViews"
 
-    android:accessibilityServiceInfoFlags="
-        flagRequestFilterKeyEvents"
-
-    android:description="@string/app_name"
-/>
+    android:description="@string/app_name"/>
