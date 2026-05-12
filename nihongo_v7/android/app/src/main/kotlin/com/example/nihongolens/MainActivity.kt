@@ -5,12 +5,22 @@ import android.content.Intent
 import android.media.projection.MediaProjectionManager
 import android.os.Bundle
 import io.flutter.embedding.android.FlutterActivity
+import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
 
-    private val CHANNEL =
+    companion object {
+
+        var subtitleSink:
+            EventChannel.EventSink? = null
+    }
+
+    private val METHOD_CHANNEL =
         "nihongo_lens/capture"
+
+    private val EVENT_CHANNEL =
+        "nihongo_lens/subtitles"
 
     private val REQUEST_CODE = 1001
 
@@ -24,7 +34,7 @@ class MainActivity : FlutterActivity() {
             flutterEngine!!
                 .dartExecutor
                 .binaryMessenger,
-            CHANNEL
+            METHOD_CHANNEL
         ).setMethodCallHandler { call, result ->
 
             if (call.method == "startCapture") {
@@ -46,6 +56,34 @@ class MainActivity : FlutterActivity() {
                 result.notImplemented()
             }
         }
+
+        EventChannel(
+            flutterEngine!!
+                .dartExecutor
+                .binaryMessenger,
+            EVENT_CHANNEL
+        ).setStreamHandler(
+
+            object :
+                EventChannel.StreamHandler {
+
+                override fun onListen(
+                    arguments: Any?,
+                    events:
+                        EventChannel.EventSink?
+                ) {
+
+                    subtitleSink = events
+                }
+
+                override fun onCancel(
+                    arguments: Any?
+                ) {
+
+                    subtitleSink = null
+                }
+            }
+        )
     }
 
     override fun onActivityResult(
