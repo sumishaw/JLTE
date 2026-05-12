@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:speech_to_text/speech_to_text.dart';
 import 'package:translator/translator.dart';
 
 void main() {
@@ -30,92 +28,48 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
 
-  final SpeechToText speech = SpeechToText();
   final translator = GoogleTranslator();
 
   static const platform =
       MethodChannel('overlay_channel');
 
+  static const whisperChannel =
+      MethodChannel('whisper_channel');
+
   String japaneseText =
-      "Waiting for Japanese speech...";
+      "Waiting for Japanese transcription...";
 
   String englishText =
-      "English translation will appear here";
+      "Waiting for English translation...";
 
-  bool isListening = false;
+  @override
+  void initState() {
 
-  Future<void> startListening() async {
+    super.initState();
 
-    await Permission.microphone.request();
-    await Permission.systemAlertWindow.request();
+    whisperChannel.setMethodCallHandler(
+      (call) async {
 
-    bool available = await speech.initialize(
-      onError: (error) {
-        debugPrint("Speech Error: $error");
-      },
-      onStatus: (status) {
-        debugPrint("Speech Status: $status");
-      },
-    );
+        if (call.method == "onTranscription") {
 
-    if (!available) {
+          final japanese =
+              call.arguments.toString();
 
-      setState(() {
-        japaneseText =
-            "Japanese recognition unavailable";
-      });
-
-      return;
-    }
-
-    try {
-
-      await platform.invokeMethod(
-        'startOverlay'
-      );
-
-    } catch (_) {}
-
-    setState(() {
-      isListening = true;
-    });
-
-    speech.listen(
-
-      localeId: 'ja_JP',
-
-      listenMode: ListenMode.dictation,
-
-      partialResults: true,
-
-      cancelOnError: false,
-
-      listenFor: const Duration(
-        minutes: 30,
-      ),
-
-      pauseFor: const Duration(
-        seconds: 10,
-      ),
-
-      onResult: (result) async {
-
-        japaneseText =
-            result.recognizedWords;
-
-        if (japaneseText.isNotEmpty) {
+          japaneseText = japanese;
 
           try {
 
             final translation =
                 await translator.translate(
-              japaneseText,
+              japanese,
               from: 'ja',
               to: 'en',
             );
 
             englishText =
                 translation.text;
+
+            setState(() {});
 
             try {
 
@@ -130,19 +84,23 @@ class _HomePageState extends State<HomePage> {
 
           } catch (_) {}
         }
-
-        setState(() {});
       },
     );
   }
 
-  void stopListening() {
+  Future<void> startCapture() async {
 
-    speech.stop();
+    try {
 
-    setState(() {
-      isListening = false;
-    });
+      await platform.invokeMethod(
+        'startOverlay'
+      );
+
+      await platform.invokeMethod(
+        'startInternalAudioCapture'
+      );
+
+    } catch (_) {}
   }
 
   @override
@@ -189,14 +147,10 @@ class _HomePageState extends State<HomePage> {
 
             ElevatedButton(
 
-              onPressed: isListening
-                  ? stopListening
-                  : startListening,
+              onPressed: startCapture,
 
-              child: Text(
-                isListening
-                    ? "STOP LISTENING"
-                    : "START LIVE TRANSLATION",
+              child: const Text(
+                "START LIVE TRANSLATION"
               ),
             ),
           ],
