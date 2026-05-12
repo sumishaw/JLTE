@@ -3,11 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
-
 import 'package:translator/translator.dart';
-
-import 'package:screen_capturer/screen_capturer.dart';
 
 void main() {
 
@@ -46,19 +42,13 @@ class HomePage extends StatefulWidget {
 class _HomePageState
     extends State<HomePage> {
 
-  final translator =
-      GoogleTranslator();
-
-  final textRecognizer =
-      TextRecognizer(
-        script:
-        TextRecognitionScript.japanese,
-      );
-
   static const platform =
       MethodChannel(
         'overlay_channel',
       );
+
+  final translator =
+      GoogleTranslator();
 
   String japaneseText =
       "Waiting for Japanese subtitles...";
@@ -68,107 +58,75 @@ class _HomePageState
 
   Timer? timer;
 
-  bool isRunning = false;
+  bool running = false;
 
-  Future<void> startSystem() async {
+  Future<void> startListening()
+  async {
 
-    if (isRunning) return;
+    if (running) return;
 
-    isRunning = true;
+    running = true;
 
-    try {
-
-      await platform.invokeMethod(
-        'startOverlay',
-      );
-
-    } catch (e) {
-
-      print(e);
-    }
+    await platform.invokeMethod(
+      'requestOverlayPermission',
+    );
 
     timer = Timer.periodic(
 
       const Duration(
-        seconds: 3,
+        seconds: 2,
       ),
 
       (_) async {
 
-        await detectJapaneseText();
+        await fetchSubtitle();
       },
     );
   }
 
-  Future<void> detectJapaneseText() async {
+  Future<void> fetchSubtitle()
+  async {
 
     try {
 
-      final image =
-          await ScreenCapturer.instance.capture();
-
-      if (image == null) {
-        return;
-      }
-
-      final imagePath =
-          image.imagePath;
-
-      if (imagePath == null) {
-        return;
-      }
-
-      final inputImage =
-          InputImage.fromFilePath(
-        imagePath,
-      );
-
-      final recognizedText =
-          await textRecognizer.processImage(
-        inputImage,
-      );
-
       final text =
-          recognizedText.text.trim();
+          await platform.invokeMethod(
+        'getSubtitleText',
+      );
 
-      if (text.isEmpty) {
+      if (
+          text == null ||
+          text.toString().trim().isEmpty
+      ) {
         return;
       }
 
-      japaneseText = text;
+      final jp =
+          text.toString();
 
-      final translation =
+      if (
+          jp == japaneseText
+      ) {
+        return;
+      }
+
+      japaneseText = jp;
+
+      final translated =
           await translator.translate(
-        text,
+        jp,
         from: 'ja',
         to: 'en',
       );
 
       englishText =
-          translation.text;
+          translated.text;
 
       setState(() {});
 
-      try {
-
-        await platform.invokeMethod(
-          'updateOverlay',
-          {
-            "text":
-            englishText,
-          },
-        );
-
-      } catch (e) {
-
-        print(e);
-      }
-
     } catch (e) {
 
-      print(
-        "OCR ERROR: $e",
-      );
+      print(e);
     }
   }
 
@@ -176,8 +134,6 @@ class _HomePageState
   void dispose() {
 
     timer?.cancel();
-
-    textRecognizer.close();
 
     super.dispose();
   }
@@ -200,12 +156,10 @@ class _HomePageState
         child: Column(
 
           mainAxisAlignment:
-          MainAxisAlignment
-              .center,
+          MainAxisAlignment.center,
 
           crossAxisAlignment:
-          CrossAxisAlignment
-              .start,
+          CrossAxisAlignment.start,
 
           children: [
 
@@ -219,7 +173,7 @@ class _HomePageState
                 color:
                 Colors.white,
 
-                fontSize: 26,
+                fontSize: 24,
               ),
             ),
 
@@ -234,8 +188,8 @@ class _HomePageState
               style:
               const TextStyle(
 
-                color: Colors
-                    .greenAccent,
+                color:
+                Colors.greenAccent,
 
                 fontSize: 34,
 
@@ -251,10 +205,10 @@ class _HomePageState
             ElevatedButton(
 
               onPressed:
-              startSystem,
+              startListening,
 
               child: const Text(
-                "START OCR TRANSLATOR",
+                "START LIVE TRANSLATION",
               ),
             ),
           ],
