@@ -3,52 +3,33 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'package:translator/translator.dart';
-
 void main() {
-
-  WidgetsFlutterBinding.ensureInitialized();
-
-  runApp(
-    const MyApp(),
-  );
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
-
   const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-
     return MaterialApp(
-
       debugShowCheckedModeBanner: false,
-
       home: const HomePage(),
     );
   }
 }
 
 class HomePage extends StatefulWidget {
-
   const HomePage({super.key});
 
   @override
-  State<HomePage> createState() =>
-      _HomePageState();
+  State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState
-    extends State<HomePage> {
+class _HomePageState extends State<HomePage> {
 
   static const platform =
-      MethodChannel(
-        'overlay_channel',
-      );
-
-  final translator =
-      GoogleTranslator();
+      MethodChannel('nihongo_lens/captions');
 
   String japaneseText =
       "Waiting for Japanese subtitles...";
@@ -56,265 +37,114 @@ class _HomePageState
   String englishText =
       "Waiting for English translation...";
 
-  Timer? timer;
+  @override
+  void initState() {
+    super.initState();
 
-  bool running = false;
-
-  String lastTranslated =
-      "";
-
-  Future<void> startListening()
-  async {
-
-    if (running) return;
-
-    running = true;
-
-    await platform.invokeMethod(
-      'requestOverlayPermission',
-    );
-
-    timer = Timer.periodic(
-
-      const Duration(
-        seconds: 2,
-      ),
-
-      (_) async {
-
-        await fetchSubtitle();
-      },
-    );
+    platform.setMethodCallHandler(_handleMethod);
   }
 
-  Future<void> fetchSubtitle()
-  async {
+  Future<void> _handleMethod(MethodCall call) async {
 
-    try {
+    if (call.method == "onCaption") {
 
-      final dynamic result =
-          await platform.invokeMethod(
-        'getSubtitleText',
-      );
+      final text = call.arguments.toString();
 
-      if (result == null) {
-        return;
-      }
+      setState(() {
 
-      final jp =
-          result.toString().trim();
+        japaneseText = text;
 
-      if (jp.isEmpty) {
-        return;
-      }
-
-      if (jp == lastTranslated) {
-        return;
-      }
-
-      lastTranslated = jp;
-
-      japaneseText = jp;
-
-      setState(() {});
-
-      Translation translated =
-          await translator.translate(
-        jp,
-        from: 'ja',
-        to: 'en',
-      );
-
-      englishText =
-          translated.text;
-
-      setState(() {});
-
-      await platform.invokeMethod(
-        'showOverlay',
-        {
-          "text": englishText,
-        },
-      );
-
-    } catch (e) {
-
-      print(
-        "TRANSLATION ERROR: $e",
-      );
+        englishText = fakeTranslate(text);
+      });
     }
   }
 
-  @override
-  void dispose() {
+  String fakeTranslate(String text) {
 
-    timer?.cancel();
+    if (text.contains("うん")) {
+      return "Yeah.";
+    }
 
-    super.dispose();
+    if (text.contains("大事")) {
+      return "Take good care of it.";
+    }
+
+    return "English translation coming soon...";
   }
 
   @override
   Widget build(BuildContext context) {
 
     return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        title: const Text("Nihongo Lens"),
+        backgroundColor: Colors.black,
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment:
+              CrossAxisAlignment.start,
+          children: [
 
-      backgroundColor:
-      Colors.black,
+            const Text(
+              "Japanese Subtitle",
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 18,
+              ),
+            ),
 
-      body: SafeArea(
+            const SizedBox(height: 10),
 
-        child: Padding(
-
-          padding:
-          const EdgeInsets.all(
-            20,
-          ),
-
-          child: Column(
-
-            crossAxisAlignment:
-            CrossAxisAlignment.start,
-
-            mainAxisAlignment:
-            MainAxisAlignment.center,
-
-            children: [
-
-              const Text(
-
-                "Japanese Subtitle",
-
-                style: TextStyle(
-
-                  color:
-                  Colors.white70,
-
-                  fontSize: 18,
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white10,
+                borderRadius:
+                    BorderRadius.circular(12),
+              ),
+              child: Text(
+                japaneseText,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 26,
                 ),
               ),
+            ),
 
-              const SizedBox(
-                height: 10,
+            const SizedBox(height: 30),
+
+            const Text(
+              "English Translation",
+              style: TextStyle(
+                color: Colors.greenAccent,
+                fontSize: 18,
               ),
+            ),
 
-              Container(
+            const SizedBox(height: 10),
 
-                width: double.infinity,
-
-                padding:
-                const EdgeInsets.all(
-                  16,
-                ),
-
-                decoration:
-                BoxDecoration(
-
-                  color:
-                  Colors.white10,
-
-                  borderRadius:
-                  BorderRadius.circular(
-                    16,
-                  ),
-                ),
-
-                child: Text(
-
-                  japaneseText,
-
-                  style:
-                  const TextStyle(
-
-                    color:
-                    Colors.white,
-
-                    fontSize: 24,
-                  ),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.green.withOpacity(0.2),
+                borderRadius:
+                    BorderRadius.circular(12),
+              ),
+              child: Text(
+                englishText,
+                style: const TextStyle(
+                  color: Colors.greenAccent,
+                  fontSize: 30,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-
-              const SizedBox(
-                height: 40,
-              ),
-
-              const Text(
-
-                "English Translation",
-
-                style: TextStyle(
-
-                  color:
-                  Colors.greenAccent,
-
-                  fontSize: 18,
-                ),
-              ),
-
-              const SizedBox(
-                height: 10,
-              ),
-
-              Container(
-
-                width: double.infinity,
-
-                padding:
-                const EdgeInsets.all(
-                  16,
-                ),
-
-                decoration:
-                BoxDecoration(
-
-                  color:
-                  Colors.green
-                      .withOpacity(
-                    0.15,
-                  ),
-
-                  borderRadius:
-                  BorderRadius.circular(
-                    16,
-                  ),
-                ),
-
-                child: Text(
-
-                  englishText,
-
-                  style:
-                  const TextStyle(
-
-                    color:
-                    Colors.greenAccent,
-
-                    fontSize: 30,
-
-                    fontWeight:
-                    FontWeight.bold,
-                  ),
-                ),
-              ),
-
-              const SizedBox(
-                height: 50,
-              ),
-
-              Center(
-
-                child:
-                ElevatedButton(
-
-                  onPressed:
-                  startListening,
-
-                  child: const Text(
-                    "START LIVE TRANSLATION",
-                  ),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
