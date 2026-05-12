@@ -15,12 +15,16 @@ import android.media.ImageReader
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.Build
+import android.os.Environment
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.util.DisplayMetrics
 import android.util.Log
 import android.view.WindowManager
+import java.io.File
+import java.io.FileOutputStream
+import java.nio.ByteBuffer
 
 class ScreenCaptureService : Service() {
 
@@ -119,11 +123,11 @@ class ScreenCaptureService : Service() {
 
                     handler.postDelayed(
                         this,
-                        1500
+                        2000
                     )
                 }
             },
-            1500
+            2000
         )
     }
 
@@ -136,18 +140,96 @@ class ScreenCaptureService : Service() {
                     ?.acquireLatestImage()
                     ?: return
 
-            Log.d(
-                "CaptureService",
-                "Frame captured"
+            val plane =
+                image.planes[0]
+
+            val buffer: ByteBuffer =
+                plane.buffer
+
+            val pixelStride =
+                plane.pixelStride
+
+            val rowStride =
+                plane.rowStride
+
+            val rowPadding =
+                rowStride -
+                    pixelStride *
+                    image.width
+
+            val bitmap =
+                Bitmap.createBitmap(
+                    image.width +
+                        rowPadding /
+                        pixelStride,
+                    image.height,
+                    Bitmap.Config.ARGB_8888
+                )
+
+            bitmap.copyPixelsFromBuffer(
+                buffer
             )
 
+            saveBitmap(bitmap)
+
             image.close()
+
+            Log.d(
+                "CaptureService",
+                "Frame saved"
+            )
 
         } catch (e: Exception) {
 
             Log.e(
                 "CaptureService",
                 "Frame error: ${e.message}"
+            )
+        }
+    }
+
+    private fun saveBitmap(
+        bitmap: Bitmap
+    ) {
+
+        try {
+
+            val dir =
+                File(
+                    getExternalFilesDir(
+                        null
+                    ),
+                    "captures"
+                )
+
+            if (!dir.exists()) {
+                dir.mkdirs()
+            }
+
+            val file =
+                File(
+                    dir,
+                    "latest_frame.png"
+                )
+
+            val stream =
+                FileOutputStream(file)
+
+            bitmap.compress(
+                Bitmap.CompressFormat.PNG,
+                100,
+                stream
+            )
+
+            stream.flush()
+
+            stream.close()
+
+        } catch (e: Exception) {
+
+            Log.e(
+                "CaptureService",
+                "Save error: ${e.message}"
             )
         }
     }
