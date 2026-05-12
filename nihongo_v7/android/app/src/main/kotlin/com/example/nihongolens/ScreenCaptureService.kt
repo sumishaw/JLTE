@@ -7,7 +7,9 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.PixelFormat
+import android.graphics.Rect
 import android.hardware.display.DisplayManager
 import android.hardware.display.VirtualDisplay
 import android.media.Image
@@ -122,11 +124,11 @@ class ScreenCaptureService : Service() {
 
                     handler.postDelayed(
                         this,
-                        2000
+                        1200
                     )
                 }
             },
-            2000
+            1200
         )
     }
 
@@ -169,13 +171,30 @@ class ScreenCaptureService : Service() {
                 buffer
             )
 
-            saveBitmap(bitmap)
+            // Crop subtitle region
+
+            val cropTop =
+                (bitmap.height * 0.70).toInt()
+
+            val cropHeight =
+                (bitmap.height * 0.25).toInt()
+
+            val cropped =
+                Bitmap.createBitmap(
+                    bitmap,
+                    0,
+                    cropTop,
+                    bitmap.width,
+                    cropHeight
+                )
+
+            saveBitmap(cropped)
 
             image.close()
 
             Log.d(
                 "CaptureService",
-                "Live frame captured"
+                "Subtitle region captured"
             )
 
         } catch (e: Exception) {
@@ -224,7 +243,7 @@ class ScreenCaptureService : Service() {
 
             Log.d(
                 "CaptureService",
-                "Live frame saved successfully"
+                "Subtitle frame saved"
             )
 
         } catch (e: Exception) {
@@ -273,7 +292,7 @@ class ScreenCaptureService : Service() {
                 "Nihongo Lens"
             )
             .setContentText(
-                "Live subtitle capture running"
+                "Live subtitle OCR active"
             )
             .setSmallIcon(
                 android.R.drawable.ic_menu_camera
