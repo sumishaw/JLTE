@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Intent
 import android.media.projection.MediaProjectionManager
 import android.os.Bundle
+import android.util.Log
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.plugin.common.MethodChannel
 
@@ -24,17 +25,36 @@ class MainActivity : FlutterActivity() {
 
             if (call.method == "startCapture") {
 
-                val manager =
-                    getSystemService(
-                        MEDIA_PROJECTION_SERVICE
-                    ) as MediaProjectionManager
+                try {
 
-                startActivityForResult(
-                    manager.createScreenCaptureIntent(),
-                    REQUEST_CODE
-                )
+                    val manager =
+                        getSystemService(
+                            MEDIA_PROJECTION_SERVICE
+                        ) as MediaProjectionManager
 
-                result.success(true)
+                    val captureIntent =
+                        manager.createScreenCaptureIntent()
+
+                    startActivityForResult(
+                        captureIntent,
+                        REQUEST_CODE
+                    )
+
+                    result.success(true)
+
+                } catch (e: Exception) {
+
+                    Log.e(
+                        "MainActivity",
+                        "Error: ${e.message}"
+                    )
+
+                    result.error(
+                        "CAPTURE_ERROR",
+                        e.message,
+                        null
+                    )
+                }
 
             } else {
 
@@ -62,18 +82,42 @@ class MainActivity : FlutterActivity() {
                 data != null
             ) {
 
-                ScreenCaptureHolder.resultCode =
-                    resultCode
+                try {
 
-                ScreenCaptureHolder.data =
-                    data
+                    ScreenCaptureHolder.resultCode =
+                        resultCode
 
-                val serviceIntent = Intent(
-                    this,
-                    ScreenCaptureService::class.java
+                    ScreenCaptureHolder.data =
+                        data
+
+                    val serviceIntent = Intent(
+                        this,
+                        ScreenCaptureService::class.java
+                    )
+
+                    startForegroundService(
+                        serviceIntent
+                    )
+
+                    Log.d(
+                        "MainActivity",
+                        "Capture started"
+                    )
+
+                } catch (e: Exception) {
+
+                    Log.e(
+                        "MainActivity",
+                        "Service error: ${e.message}"
+                    )
+                }
+
+            } else {
+
+                Log.e(
+                    "MainActivity",
+                    "Permission denied"
                 )
-
-                startForegroundService(serviceIntent)
             }
         }
     }
