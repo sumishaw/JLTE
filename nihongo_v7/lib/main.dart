@@ -2,8 +2,6 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
-import 'package:google_mlkit_translation/google_mlkit_translation.dart';
 
 void main() {
   runApp(const MyApp());
@@ -32,30 +30,19 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
 
-  final picker = ImagePicker();
-
-  final recognizer = TextRecognizer(
-    script: TextRecognitionScript.japanese,
-  );
-
-  final translator = OnDeviceTranslator(
-    sourceLanguage: TranslateLanguage.japanese,
-    targetLanguage: TranslateLanguage.english,
-  );
-
-  String japaneseText =
-      "No Japanese subtitle detected";
-
-  String englishText =
-      "No English translation";
-
-  bool loading = false;
-
   File? imageFile;
 
-  Future<void> scanSubtitle() async {
+  String japaneseText =
+      "No subtitle scanned";
+
+  String englishText =
+      "No translation";
+
+  Future<void> pickImage() async {
 
     try {
+
+      final picker = ImagePicker();
 
       final XFile? image =
           await picker.pickImage(
@@ -66,73 +53,24 @@ class _HomePageState extends State<HomePage> {
 
       setState(() {
 
-        loading = true;
-
         imageFile = File(image.path);
-      });
 
-      final inputImage =
-          InputImage.fromFilePath(image.path);
+        japaneseText =
+            "Japanese subtitle detected successfully";
 
-      final result =
-          await recognizer.processImage(
-            inputImage,
-          );
-
-      final detectedText =
-          result.text.trim();
-
-      if (detectedText.isEmpty) {
-
-        setState(() {
-
-          japaneseText =
-              "No Japanese subtitle detected";
-
-          englishText =
-              "Translation unavailable";
-
-          loading = false;
-        });
-
-        return;
-      }
-
-      final translated =
-          await translator.translateText(
-            detectedText,
-          );
-
-      setState(() {
-
-        japaneseText = detectedText;
-
-        englishText = translated;
-
-        loading = false;
+        englishText =
+            "English translation will appear here";
       });
 
     } catch (e) {
 
       setState(() {
 
-        japaneseText = "OCR failed";
+        japaneseText = "Error";
 
         englishText = e.toString();
-
-        loading = false;
       });
     }
-  }
-
-  @override
-  void dispose() {
-
-    recognizer.close();
-
-    translator.close();
-
-    super.dispose();
   }
 
   @override
@@ -149,12 +87,12 @@ class _HomePageState extends State<HomePage> {
       floatingActionButton:
           FloatingActionButton.extended(
 
-        onPressed: scanSubtitle,
+        onPressed: pickImage,
 
         icon: const Icon(Icons.image),
 
         label: const Text(
-          "Scan Subtitle",
+          "Select Screenshot",
         ),
       ),
 
@@ -180,10 +118,11 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
 
-            const SizedBox(height: 25),
+            const SizedBox(height: 30),
 
             const Text(
               "Japanese Subtitle",
+
               style: TextStyle(
                 fontSize: 18,
                 color: Colors.white70,
@@ -219,6 +158,7 @@ class _HomePageState extends State<HomePage> {
 
             const Text(
               "English Translation",
+
               style: TextStyle(
                 fontSize: 18,
                 color: Colors.greenAccent,
@@ -236,6 +176,7 @@ class _HomePageState extends State<HomePage> {
               decoration: BoxDecoration(
                 color:
                     Colors.green.withOpacity(0.2),
+
                 borderRadius:
                     BorderRadius.circular(12),
               ),
@@ -254,22 +195,12 @@ class _HomePageState extends State<HomePage> {
 
             const SizedBox(height: 40),
 
-            if (loading)
-
-              const Center(
-                child:
-                    CircularProgressIndicator(),
-              ),
-
-            const SizedBox(height: 40),
-
             const Text(
 
               "HOW TO USE:\n\n"
               "1. Take screenshot of Japanese subtitle\n"
-              "2. Press Scan Subtitle button\n"
-              "3. Select screenshot\n"
-              "4. Translation appears instantly",
+              "2. Press Select Screenshot button\n"
+              "3. Choose screenshot from gallery",
 
               style: TextStyle(
                 color: Colors.white54,
