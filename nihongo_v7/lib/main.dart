@@ -1,6 +1,6 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:collection';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
@@ -41,13 +41,8 @@ class _HomePageState extends State<HomePage> {
             TextRecognitionScript.japanese,
       );
 
-  final translator =
-      OnDeviceTranslator(
-        sourceLanguage:
-            TranslateLanguage.japanese,
-        targetLanguage:
-            TranslateLanguage.english,
-      );
+  late final OnDeviceTranslator
+      translator;
 
   final Map<String, String>
       translationCache = HashMap();
@@ -59,7 +54,7 @@ class _HomePageState extends State<HomePage> {
       "Waiting for translation...";
 
   String status =
-      "Idle";
+      "Initializing...";
 
   String lastSubtitle = "";
 
@@ -74,7 +69,45 @@ class _HomePageState extends State<HomePage> {
 
     super.initState();
 
-    startLiveOCR();
+    initTranslator().then((_) {
+
+      startLiveOCR();
+    });
+  }
+
+  Future<void> initTranslator() async {
+
+    translator = OnDeviceTranslator(
+      sourceLanguage:
+          TranslateLanguage.japanese,
+      targetLanguage:
+          TranslateLanguage.english,
+    );
+
+    setState(() {
+
+      status =
+          "Downloading translation model...";
+    });
+
+    try {
+
+      await translator.downloadModelIfNeeded();
+
+      setState(() {
+
+        status =
+            "Translation model ready";
+      });
+
+    } catch (e) {
+
+      setState(() {
+
+        status =
+            "Translation model failed";
+      });
+    }
   }
 
   void startLiveOCR() {
@@ -120,7 +153,7 @@ class _HomePageState extends State<HomePage> {
       setState(() {
 
         status =
-            "Scanning subtitle region...";
+            "Scanning subtitles...";
       });
 
       final inputImage =
@@ -177,10 +210,18 @@ class _HomePageState extends State<HomePage> {
 
       } else {
 
-        translated =
-            await translator.translateText(
-              jp,
-            );
+        try {
+
+          translated =
+              await translator.translateText(
+                jp,
+              );
+
+        } catch (e) {
+
+          translated =
+              "Translation failed";
+        }
 
         translationCache[jp] =
             translated;
@@ -241,12 +282,11 @@ class _HomePageState extends State<HomePage> {
 
       if (!hasJapanese) return false;
 
-      // Ignore UI garbage
+      // Ignore garbage
 
       if (
           e.contains("www") ||
-          e.contains("http") ||
-          e.contains("字幕")
+          e.contains("http")
       ) {
         return false;
       }
@@ -422,7 +462,7 @@ class _HomePageState extends State<HomePage> {
               "• Duplicate subtitle removal\n"
               "• Translation caching\n"
               "• Adaptive OCR refresh\n"
-              "• Live subtitle updates",
+              "• Offline translation model",
 
               style: TextStyle(
                 fontSize: 16,
