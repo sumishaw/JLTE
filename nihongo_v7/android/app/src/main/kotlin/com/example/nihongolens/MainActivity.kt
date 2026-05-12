@@ -28,6 +28,20 @@ class MainActivity : FlutterActivity() {
         mediaProjectionManager =
             getSystemService(MEDIA_PROJECTION_SERVICE)
                     as MediaProjectionManager
+
+        // Download Whisper model automatically
+        Thread {
+
+            try {
+
+                ModelDownloader.downloadModelIfNeeded(this)
+
+            } catch (e: Exception) {
+
+                e.printStackTrace()
+            }
+
+        }.start()
     }
 
     override fun configureFlutterEngine(
@@ -62,8 +76,11 @@ class MainActivity : FlutterActivity() {
                         Intent(this, OverlayService::class.java)
 
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+
                         startForegroundService(overlayIntent)
+
                     } else {
+
                         startService(overlayIntent)
                     }
 
