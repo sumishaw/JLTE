@@ -48,6 +48,8 @@ class ScreenCaptureService : Service() {
 
     private var lastSubtitle = ""
 
+    private var processing = false
+
     override fun onStartCommand(
         intent: Intent?,
         flags: Int,
@@ -127,15 +129,20 @@ class ScreenCaptureService : Service() {
 
                 override fun run() {
 
-                    captureFrame()
+                    if (!processing) {
+
+                        processing = true
+
+                        captureFrame()
+                    }
 
                     handler.postDelayed(
                         this,
-                        1200
+                        1000
                     )
                 }
             },
-            1200
+            1000
         )
     }
 
@@ -146,7 +153,12 @@ class ScreenCaptureService : Service() {
             val image: Image =
                 imageReader
                     ?.acquireLatestImage()
-                    ?: return
+                    ?: run {
+
+                        processing = false
+
+                        return
+                    }
 
             val plane =
                 image.planes[0]
@@ -184,6 +196,8 @@ class ScreenCaptureService : Service() {
 
         } catch (e: Exception) {
 
+            processing = false
+
             Log.e(
                 "CaptureService",
                 "Frame error: ${e.message}"
@@ -198,10 +212,10 @@ class ScreenCaptureService : Service() {
         try {
 
             val cropTop =
-                (bitmap.height * 0.70).toInt()
+                (bitmap.height * 0.72).toInt()
 
             val cropHeight =
-                (bitmap.height * 0.25).toInt()
+                (bitmap.height * 0.22).toInt()
 
             val cropped =
                 Bitmap.createBitmap(
@@ -222,8 +236,17 @@ class ScreenCaptureService : Service() {
 
                 .addOnSuccessListener {
 
-                    val text =
+                    processing = false
+
+                    var text =
                         it.text.trim()
+
+                    if (
+                        text.isEmpty()
+                    ) return@addOnSuccessListener
+
+                    text =
+                        cleanupJapanese(text)
 
                     if (
                         text.isEmpty()
@@ -247,6 +270,8 @@ class ScreenCaptureService : Service() {
 
                 .addOnFailureListener {
 
+                    processing = false
+
                     Log.e(
                         "CaptureService",
                         "OCR failed"
@@ -255,11 +280,49 @@ class ScreenCaptureService : Service() {
 
         } catch (e: Exception) {
 
+            processing = false
+
             Log.e(
                 "CaptureService",
                 "OCR error: ${e.message}"
             )
         }
+    }
+
+    private fun cleanupJapanese(
+        text: String
+    ): String {
+
+        val lines =
+            text
+                .split("\n")
+                .map {
+                    it.trim()
+                }
+                .filter {
+
+                    if (it.length < 2)
+                        return@filter false
+
+                    val hasJapanese =
+                        Regex(
+                            "[\\u3040-\\u30ff\\u4e00-\\u9faf]"
+                        ).containsMatchIn(it)
+
+                    if (!hasJapanese)
+                        return@filter false
+
+                    if (
+                        it.contains("http") ||
+                        it.contains("www")
+                    ) {
+                        return@filter false
+                    }
+
+                    true
+                }
+
+        return lines.joinToString("\n")
     }
 
     private fun createNotification():
