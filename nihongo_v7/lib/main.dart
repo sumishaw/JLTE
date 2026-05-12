@@ -87,27 +87,8 @@ class _HomePageState extends State<HomePage> {
     setState(() {
 
       status =
-          "Downloading translation model...";
+          "Translation engine ready";
     });
-
-    try {
-
-      await translator.downloadModelIfNeeded();
-
-      setState(() {
-
-        status =
-            "Translation model ready";
-      });
-
-    } catch (e) {
-
-      setState(() {
-
-        status =
-            "Translation model failed";
-      });
-    }
   }
 
   void startLiveOCR() {
@@ -462,7 +443,7 @@ class _HomePageState extends State<HomePage> {
               "• Duplicate subtitle removal\n"
               "• Translation caching\n"
               "• Adaptive OCR refresh\n"
-              "• Offline translation model",
+              "• Offline translation engine",
 
               style: TextStyle(
                 fontSize: 16,
