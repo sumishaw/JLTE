@@ -57,7 +57,11 @@ class _HomePageState extends State<HomePage> {
   String status =
       "Idle";
 
+  String lastSubtitle = "";
+
   Timer? timer;
+
+  bool processing = false;
 
   @override
   void initState() {
@@ -70,10 +74,17 @@ class _HomePageState extends State<HomePage> {
   void startLiveOCR() {
 
     timer = Timer.periodic(
-      const Duration(seconds: 3),
+      const Duration(milliseconds: 1200),
       (_) async {
 
-        await processLatestFrame();
+        if (!processing) {
+
+          processing = true;
+
+          await processLatestFrame();
+
+          processing = false;
+        }
       },
     );
   }
@@ -94,7 +105,7 @@ class _HomePageState extends State<HomePage> {
         setState(() {
 
           status =
-              "Waiting for captured frame...";
+              "Waiting for captured frames...";
         });
 
         return;
@@ -103,7 +114,7 @@ class _HomePageState extends State<HomePage> {
       setState(() {
 
         status =
-            "Processing frame...";
+            "Scanning subtitles...";
       });
 
       final inputImage =
@@ -116,7 +127,7 @@ class _HomePageState extends State<HomePage> {
             inputImage,
           );
 
-      final jp =
+      String jp =
           result.text.trim();
 
       if (jp.isEmpty) {
@@ -124,11 +135,32 @@ class _HomePageState extends State<HomePage> {
         setState(() {
 
           status =
-              "No Japanese subtitles detected";
+              "No subtitles detected";
         });
 
         return;
       }
+
+      // Cleanup OCR noise
+
+      jp = cleanupJapaneseText(jp);
+
+      if (jp.isEmpty) return;
+
+      // Duplicate filtering
+
+      if (jp == lastSubtitle) {
+
+        setState(() {
+
+          status =
+              "Waiting for new subtitle...";
+        });
+
+        return;
+      }
+
+      lastSubtitle = jp;
 
       final translated =
           await translator.translateText(jp);
@@ -139,7 +171,8 @@ class _HomePageState extends State<HomePage> {
 
         english = translated;
 
-        status = "Live subtitle updated";
+        status =
+            "Live subtitle updated";
       });
 
     } catch (e) {
@@ -150,6 +183,32 @@ class _HomePageState extends State<HomePage> {
             "Error: ${e.toString()}";
       });
     }
+  }
+
+  String cleanupJapaneseText(
+      String text) {
+
+    final lines =
+        text
+            .split("\n")
+            .map((e) => e.trim())
+            .where((e) {
+
+      if (e.isEmpty) return false;
+
+      // Ignore tiny garbage
+
+      if (e.length < 2) return false;
+
+      // Must contain Japanese chars
+
+      return RegExp(
+        r'[\u3040-\u30ff\u4e00-\u9faf]'
+      ).hasMatch(e);
+
+    }).toList();
+
+    return lines.join("\n");
   }
 
   @override
@@ -310,11 +369,12 @@ class _HomePageState extends State<HomePage> {
 
             const Text(
 
-              "LIVE OCR ENGINE ACTIVE\n\n"
-              "• Continuous screen frame capture\n"
-              "• Japanese OCR detection\n"
-              "• English subtitle translation\n"
-              "• Real-time subtitle updates",
+              "LIVE OCR ENGINE\n\n"
+              "• Continuous frame capture\n"
+              "• Japanese subtitle filtering\n"
+              "• Duplicate subtitle removal\n"
+              "• Real-time translation updates\n"
+              "• Optimized OCR loop",
 
               style: TextStyle(
                 fontSize: 16,
