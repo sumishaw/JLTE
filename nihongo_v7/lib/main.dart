@@ -1,6 +1,8 @@
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
 
 void main() {
@@ -30,6 +32,8 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
 
+  final picker = ImagePicker();
+
   File? imageFile;
 
   String japaneseText =
@@ -38,11 +42,11 @@ class _HomePageState extends State<HomePage> {
   String englishText =
       "No translation";
 
-  Future<void> pickImage() async {
+  bool loading = false;
+
+  Future<void> scanSubtitle() async {
 
     try {
-
-      final picker = ImagePicker();
 
       final XFile? image =
           await picker.pickImage(
@@ -53,22 +57,86 @@ class _HomePageState extends State<HomePage> {
 
       setState(() {
 
+        loading = true;
+
         imageFile = File(image.path);
+      });
+
+      final bytes =
+          await imageFile!.readAsBytes();
+
+      final original =
+          img.decodeImage(bytes);
+
+      if (original == null) {
+
+        setState(() {
+
+          japaneseText =
+              "Image decode failed";
+
+          englishText =
+              "Try another screenshot";
+
+          loading = false;
+        });
+
+        return;
+      }
+
+      // Auto crop bottom subtitle area
+
+      final cropY =
+          (original.height * 0.70).toInt();
+
+      final cropHeight =
+          (original.height * 0.25).toInt();
+
+      final cropped =
+          img.copyCrop(
+            original,
+            x: 0,
+            y: cropY,
+            width: original.width,
+            height: cropHeight,
+          );
+
+      // Save cropped preview
+
+      final croppedPath =
+          "${imageFile!.parent.path}/cropped_subtitle.png";
+
+      final croppedFile =
+          File(croppedPath);
+
+      await croppedFile.writeAsBytes(
+        img.encodePng(cropped),
+      );
+
+      // Fake subtitle extraction placeholder
+
+      setState(() {
 
         japaneseText =
-            "Japanese subtitle detected successfully";
+            "Subtitle region cropped successfully";
 
         englishText =
-            "English translation will appear here";
+            "Ready for OCR integration";
+
+        imageFile = croppedFile;
+
+        loading = false;
       });
 
     } catch (e) {
 
       setState(() {
 
-        japaneseText = "Error";
+        japaneseText = "Processing failed";
 
         englishText = e.toString();
+
+        loading = false;
       });
     }
   }
@@ -87,12 +155,12 @@ class _HomePageState extends State<HomePage> {
       floatingActionButton:
           FloatingActionButton.extended(
 
-        onPressed: pickImage,
+        onPressed: scanSubtitle,
 
         icon: const Icon(Icons.image),
 
         label: const Text(
-          "Select Screenshot",
+          "Scan Subtitle",
         ),
       ),
 
@@ -195,12 +263,22 @@ class _HomePageState extends State<HomePage> {
 
             const SizedBox(height: 40),
 
+            if (loading)
+
+              const Center(
+                child:
+                    CircularProgressIndicator(),
+              ),
+
+            const SizedBox(height: 40),
+
             const Text(
 
-              "HOW TO USE:\n\n"
-              "1. Take screenshot of Japanese subtitle\n"
-              "2. Press Select Screenshot button\n"
-              "3. Choose screenshot from gallery",
+              "NEW FEATURES:\n\n"
+              "• Auto subtitle area crop\n"
+              "• Faster subtitle scanning\n"
+              "• Cleaner OCR preparation\n"
+              "• Better anime/movie subtitle focus",
 
               style: TextStyle(
                 color: Colors.white54,
