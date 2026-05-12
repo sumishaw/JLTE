@@ -1,16 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.example.nihongolens">
 
-    <!-- Internet -->
+    <!-- Permissions -->
     <uses-permission android:name="android.permission.INTERNET"/>
-
-    <!-- Microphone -->
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
-
-    <!-- Overlay -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
-
-    <!-- Foreground service -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
 
     <application
@@ -42,7 +36,7 @@
             android:enabled="true"
             android:exported="false" />
 
-        <!-- Flutter embedding -->
+        <!-- Flutter Embedding -->
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
