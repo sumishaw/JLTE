@@ -1,11 +1,9 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.example.nihongolens">
 
     <application
-        android:name="${applicationName}"
         android:label="Nihongo Lens"
+        android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
 
         <activity
@@ -28,18 +26,22 @@
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize">
 
+            <meta-data
+                android:name="io.flutter.embedding.android.NormalTheme"
+                android:resource="@style/NormalTheme"/>
+
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
 
                 <category
-                    android:name="
-                    android.intent.category.LAUNCHER"/>
+                    android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
 
         <meta-data
             android:name="flutterEmbedding"
             android:value="2"/>
+
     </application>
 
 </manifest>
