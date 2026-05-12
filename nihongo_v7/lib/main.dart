@@ -17,6 +17,7 @@ class MyApp extends StatelessWidget {
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      theme: ThemeData.dark(),
       home: const HomePage(),
     );
   }
@@ -43,16 +44,16 @@ class _HomePageState extends State<HomePage> {
   );
 
   String japaneseText =
-      "Tap capture button to scan subtitles";
+      "No Japanese subtitle detected";
 
   String englishText =
-      "English translation will appear here";
-
-  File? selectedImage;
+      "No English translation";
 
   bool loading = false;
 
-  Future<void> captureAndTranslate() async {
+  File? imageFile;
+
+  Future<void> scanSubtitle() async {
 
     try {
 
@@ -67,21 +68,21 @@ class _HomePageState extends State<HomePage> {
 
         loading = true;
 
-        selectedImage = File(image.path);
+        imageFile = File(image.path);
       });
 
       final inputImage =
           InputImage.fromFilePath(image.path);
 
-      final recognized =
+      final result =
           await recognizer.processImage(
             inputImage,
           );
 
-      final jpText =
-          recognized.text.trim();
+      final detectedText =
+          result.text.trim();
 
-      if (jpText.isEmpty) {
+      if (detectedText.isEmpty) {
 
         setState(() {
 
@@ -99,12 +100,12 @@ class _HomePageState extends State<HomePage> {
 
       final translated =
           await translator.translateText(
-            jpText,
+            detectedText,
           );
 
       setState(() {
 
-        japaneseText = jpText;
+        japaneseText = detectedText;
 
         englishText = translated;
 
@@ -139,23 +140,18 @@ class _HomePageState extends State<HomePage> {
 
     return Scaffold(
 
-      backgroundColor: Colors.black,
-
       appBar: AppBar(
         title: const Text(
           "Nihongo Lens",
         ),
-        backgroundColor: Colors.black,
       ),
 
       floatingActionButton:
           FloatingActionButton.extended(
 
-        onPressed: captureAndTranslate,
+        onPressed: scanSubtitle,
 
-        backgroundColor: Colors.green,
-
-        icon: const Icon(Icons.camera),
+        icon: const Icon(Icons.image),
 
         label: const Text(
           "Scan Subtitle",
@@ -172,7 +168,7 @@ class _HomePageState extends State<HomePage> {
 
           children: [
 
-            if (selectedImage != null)
+            if (imageFile != null)
 
               ClipRRect(
 
@@ -180,7 +176,7 @@ class _HomePageState extends State<HomePage> {
                     BorderRadius.circular(12),
 
                 child: Image.file(
-                  selectedImage!,
+                  imageFile!,
                 ),
               ),
 
@@ -188,10 +184,9 @@ class _HomePageState extends State<HomePage> {
 
             const Text(
               "Japanese Subtitle",
-
               style: TextStyle(
-                color: Colors.white70,
                 fontSize: 18,
+                color: Colors.white70,
               ),
             ),
 
@@ -206,7 +201,7 @@ class _HomePageState extends State<HomePage> {
               decoration: BoxDecoration(
                 color: Colors.white10,
                 borderRadius:
-                    BorderRadius.circular(14),
+                    BorderRadius.circular(12),
               ),
 
               child: Text(
@@ -214,8 +209,8 @@ class _HomePageState extends State<HomePage> {
                 japaneseText,
 
                 style: const TextStyle(
-                  color: Colors.white,
                   fontSize: 24,
+                  color: Colors.white,
                 ),
               ),
             ),
@@ -224,10 +219,9 @@ class _HomePageState extends State<HomePage> {
 
             const Text(
               "English Translation",
-
               style: TextStyle(
-                color: Colors.greenAccent,
                 fontSize: 18,
+                color: Colors.greenAccent,
               ),
             ),
 
@@ -242,9 +236,8 @@ class _HomePageState extends State<HomePage> {
               decoration: BoxDecoration(
                 color:
                     Colors.green.withOpacity(0.2),
-
                 borderRadius:
-                    BorderRadius.circular(14),
+                    BorderRadius.circular(12),
               ),
 
               child: Text(
@@ -252,8 +245,8 @@ class _HomePageState extends State<HomePage> {
                 englishText,
 
                 style: const TextStyle(
-                  color: Colors.greenAccent,
                   fontSize: 28,
+                  color: Colors.greenAccent,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -273,10 +266,10 @@ class _HomePageState extends State<HomePage> {
             const Text(
 
               "HOW TO USE:\n\n"
-              "1. Take screenshot of Japanese subtitles\n"
+              "1. Take screenshot of Japanese subtitle\n"
               "2. Press Scan Subtitle button\n"
               "3. Select screenshot\n"
-              "4. Instant English translation appears",
+              "4. Translation appears instantly",
 
               style: TextStyle(
                 color: Colors.white54,
