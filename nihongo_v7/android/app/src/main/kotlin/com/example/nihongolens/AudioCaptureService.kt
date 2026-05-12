@@ -70,7 +70,7 @@ class AudioCaptureService : Service() {
                     .addMatchingUsage(AudioAttributes.USAGE_GAME)
                     .build()
 
-            val sampleRate = 44100
+            val sampleRate = 16000
 
             val bufferSize =
                 AudioRecord.getMinBufferSize(
@@ -126,7 +126,8 @@ class AudioCaptureService : Service() {
 
                 var totalBytes = 0
 
-                while (totalBytes < 44100 * 2 * 20) {
+                // Capture ~15 seconds
+                while (totalBytes < sampleRate * 2 * 15) {
 
                     val read =
                         audioRecord?.read(
@@ -174,6 +175,10 @@ class AudioCaptureService : Service() {
 
                 Log.d(
                     "WHISPER_RESULT",
+                    transcription
+                )
+
+                MainActivity.instance?.sendTranscription(
                     transcription
                 )
 
