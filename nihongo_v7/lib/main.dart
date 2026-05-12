@@ -1,6 +1,7 @@
-import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:google_mlkit_translation/google_mlkit_translation.dart';
 
@@ -13,6 +14,7 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       home: const HomePage(),
@@ -29,8 +31,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
 
-  static const platform =
-      MethodChannel('nihongo_lens/capture');
+  final picker = ImagePicker();
 
   final recognizer = TextRecognizer(
     script: TextRecognitionScript.japanese,
@@ -41,62 +42,177 @@ class _HomePageState extends State<HomePage> {
     targetLanguage: TranslateLanguage.english,
   );
 
-  String japanese = 'Waiting for subtitles...';
-  String english = 'Waiting for translation...';
+  String japaneseText =
+      "Tap capture button to scan subtitles";
 
-  Future<void> startCapture() async {
+  String englishText =
+      "English translation will appear here";
 
-    await platform.invokeMethod('startCapture');
+  File? selectedImage;
 
-    setState(() {
-      japanese = 'Screen capture started';
-      english = 'OCR pipeline ready';
-    });
+  bool loading = false;
+
+  Future<void> captureAndTranslate() async {
+
+    try {
+
+      final XFile? image =
+          await picker.pickImage(
+            source: ImageSource.gallery,
+          );
+
+      if (image == null) return;
+
+      setState(() {
+
+        loading = true;
+
+        selectedImage = File(image.path);
+      });
+
+      final inputImage =
+          InputImage.fromFilePath(image.path);
+
+      final recognized =
+          await recognizer.processImage(
+            inputImage,
+          );
+
+      final jpText =
+          recognized.text.trim();
+
+      if (jpText.isEmpty) {
+
+        setState(() {
+
+          japaneseText =
+              "No Japanese subtitle detected";
+
+          englishText =
+              "Translation unavailable";
+
+          loading = false;
+        });
+
+        return;
+      }
+
+      final translated =
+          await translator.translateText(
+            jpText,
+          );
+
+      setState(() {
+
+        japaneseText = jpText;
+
+        englishText = translated;
+
+        loading = false;
+      });
+
+    } catch (e) {
+
+      setState(() {
+
+        japaneseText = "OCR failed";
+
+        englishText = e.toString();
+
+        loading = false;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+
+    recognizer.close();
+
+    translator.close();
+
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
 
     return Scaffold(
+
       backgroundColor: Colors.black,
 
       appBar: AppBar(
-        title: const Text('Nihongo Lens Live OCR'),
+        title: const Text(
+          "Nihongo Lens",
+        ),
         backgroundColor: Colors.black,
       ),
 
-      floatingActionButton: FloatingActionButton(
-        onPressed: startCapture,
-        child: const Icon(Icons.play_arrow),
+      floatingActionButton:
+          FloatingActionButton.extended(
+
+        onPressed: captureAndTranslate,
+
+        backgroundColor: Colors.green,
+
+        icon: const Icon(Icons.camera),
+
+        label: const Text(
+          "Scan Subtitle",
+        ),
       ),
 
-      body: Padding(
+      body: SingleChildScrollView(
+
         padding: const EdgeInsets.all(20),
 
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment:
+              CrossAxisAlignment.start,
 
           children: [
 
+            if (selectedImage != null)
+
+              ClipRRect(
+
+                borderRadius:
+                    BorderRadius.circular(12),
+
+                child: Image.file(
+                  selectedImage!,
+                ),
+              ),
+
+            const SizedBox(height: 25),
+
             const Text(
-              'Japanese Subtitle',
+              "Japanese Subtitle",
+
               style: TextStyle(
                 color: Colors.white70,
                 fontSize: 18,
               ),
             ),
 
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
 
             Container(
+
               width: double.infinity,
+
               padding: const EdgeInsets.all(16),
+
               decoration: BoxDecoration(
                 color: Colors.white10,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius:
+                    BorderRadius.circular(14),
               ),
+
               child: Text(
-                japanese,
+
+                japaneseText,
+
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 24,
@@ -107,24 +223,34 @@ class _HomePageState extends State<HomePage> {
             const SizedBox(height: 30),
 
             const Text(
-              'English Translation',
+              "English Translation",
+
               style: TextStyle(
                 color: Colors.greenAccent,
                 fontSize: 18,
               ),
             ),
 
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
 
             Container(
+
               width: double.infinity,
+
               padding: const EdgeInsets.all(16),
+
               decoration: BoxDecoration(
-                color: Colors.green.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(12),
+                color:
+                    Colors.green.withOpacity(0.2),
+
+                borderRadius:
+                    BorderRadius.circular(14),
               ),
+
               child: Text(
-                english,
+
+                englishText,
+
                 style: const TextStyle(
                   color: Colors.greenAccent,
                   fontSize: 28,
@@ -133,14 +259,31 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
 
-            const Spacer(),
+            const SizedBox(height: 40),
+
+            if (loading)
+
+              const Center(
+                child:
+                    CircularProgressIndicator(),
+              ),
+
+            const SizedBox(height: 40),
 
             const Text(
-              'Press play button to start live OCR capture.',
+
+              "HOW TO USE:\n\n"
+              "1. Take screenshot of Japanese subtitles\n"
+              "2. Press Scan Subtitle button\n"
+              "3. Select screenshot\n"
+              "4. Instant English translation appears",
+
               style: TextStyle(
                 color: Colors.white54,
+                fontSize: 16,
+                height: 1.6,
               ),
-            )
+            ),
           ],
         ),
       ),
