@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
   runApp(const MyApp());
 }
 
@@ -13,7 +15,6 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       home: const HomePage(),
-      theme: ThemeData.dark(),
     );
   }
 }
@@ -25,67 +26,41 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage>
-    with WidgetsBindingObserver {
-
+class _HomePageState extends State<HomePage> {
   static const platform =
-      MethodChannel('nihongo_lens/audio');
+      MethodChannel('com.example.nihongolens/services');
 
-  bool waitingForPermission = false;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-
-  Future<void> startCapture() async {
-    waitingForPermission = true;
-
+  Future<void> startTranslation() async {
     try {
-      await platform.invokeMethod('startCapture');
+      await platform.invokeMethod('startOverlay');
     } catch (e) {
-      debugPrint(e.toString());
-    }
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-
-    if (
-        state == AppLifecycleState.resumed &&
-        waitingForPermission
-    ) {
-
-      waitingForPermission = false;
-
-      Future.delayed(
-        const Duration(milliseconds: 500),
-            () async {
-          try {
-            await platform.invokeMethod('startCapture');
-          } catch (e) {
-            debugPrint(e.toString());
-          }
-        },
-      );
+      debugPrint("Error starting overlay: $e");
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFF0D0818),
       body: Center(
         child: ElevatedButton(
-          onPressed: startCapture,
+          onPressed: startTranslation,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.black26,
+            padding: const EdgeInsets.symmetric(
+              horizontal: 28,
+              vertical: 16,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(30),
+            ),
+          ),
           child: const Text(
-            'START LIVE TRANSLATION',
+            "START LIVE TRANSLATION",
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: 16,
+            ),
           ),
         ),
       ),
