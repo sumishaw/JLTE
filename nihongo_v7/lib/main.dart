@@ -122,6 +122,13 @@ class _HomePageState
       englishText =
           translated.text;
 
+      await platform.invokeMethod(
+        'showOverlay',
+        {
+          "text": englishText,
+        },
+      );
+
       setState(() {});
 
     } catch (e) {
