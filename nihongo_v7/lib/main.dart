@@ -1,7 +1,8 @@
 import 'dart:io';
-import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import 'package:google_mlkit_translation/google_mlkit_translation.dart';
 import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
 
@@ -34,6 +35,15 @@ class _HomePageState extends State<HomePage> {
 
   final picker = ImagePicker();
 
+  final recognizer = TextRecognizer(
+    script: TextRecognitionScript.japanese,
+  );
+
+  final translator = OnDeviceTranslator(
+    sourceLanguage: TranslateLanguage.japanese,
+    targetLanguage: TranslateLanguage.english,
+  );
+
   File? imageFile;
 
   String japaneseText =
@@ -58,17 +68,18 @@ class _HomePageState extends State<HomePage> {
       setState(() {
 
         loading = true;
-
-        imageFile = File(image.path);
       });
 
-      final bytes =
-          await imageFile!.readAsBytes();
+      final originalFile =
+          File(image.path);
 
-      final original =
+      final bytes =
+          await originalFile.readAsBytes();
+
+      final decoded =
           img.decodeImage(bytes);
 
-      if (original == null) {
+      if (decoded == null) {
 
         setState(() {
 
@@ -84,27 +95,25 @@ class _HomePageState extends State<HomePage> {
         return;
       }
 
-      // Auto crop bottom subtitle area
+      // Crop subtitle region
 
       final cropY =
-          (original.height * 0.70).toInt();
+          (decoded.height * 0.70).toInt();
 
       final cropHeight =
-          (original.height * 0.25).toInt();
+          (decoded.height * 0.25).toInt();
 
       final cropped =
           img.copyCrop(
-            original,
+            decoded,
             x: 0,
             y: cropY,
-            width: original.width,
+            width: decoded.width,
             height: cropHeight,
           );
 
-      // Save cropped preview
-
       final croppedPath =
-          "${imageFile!.parent.path}/cropped_subtitle.png";
+          "${originalFile.parent.path}/subtitle_crop.png";
 
       final croppedFile =
           File(croppedPath);
@@ -113,17 +122,51 @@ class _HomePageState extends State<HomePage> {
         img.encodePng(cropped),
       );
 
-      // Fake subtitle extraction placeholder
+      imageFile = croppedFile;
+
+      // OCR
+
+      final inputImage =
+          InputImage.fromFilePath(
+            croppedFile.path,
+          );
+
+      final result =
+          await recognizer.processImage(
+            inputImage,
+          );
+
+      final jpText =
+          result.text.trim();
+
+      if (jpText.isEmpty) {
+
+        setState(() {
+
+          japaneseText =
+              "No Japanese subtitle detected";
+
+          englishText =
+              "Translation unavailable";
+
+          loading = false;
+        });
+
+        return;
+      }
+
+      // Translation
+
+      final translated =
+          await translator.translateText(
+            jpText,
+          );
 
       setState(() {
 
-        japaneseText =
-            "Subtitle region cropped successfully";
+        japaneseText = jpText;
 
-        englishText =
-            "Ready for OCR integration";
-
-        imageFile = croppedFile;
+        englishText = translated;
 
         loading = false;
       });
@@ -132,13 +175,23 @@ class _HomePageState extends State<HomePage> {
 
       setState(() {
 
-        japaneseText = "Processing failed";
+        japaneseText = "OCR failed";
 
         englishText = e.toString();
 
         loading = false;
       });
     }
+  }
+
+  @override
+  void dispose() {
+
+    recognizer.close();
+
+    translator.close();
+
+    super.dispose();
   }
 
   @override
@@ -274,11 +327,12 @@ class _HomePageState extends State<HomePage> {
 
             const Text(
 
-              "NEW FEATURES:\n\n"
-              "• Auto subtitle area crop\n"
-              "• Faster subtitle scanning\n"
-              "• Cleaner OCR preparation\n"
-              "• Better anime/movie subtitle focus",
+              "FEATURES:\n\n"
+              "• Auto subtitle crop\n"
+              "• Japanese OCR\n"
+              "• English translation\n"
+              "• Better anime subtitle focus\n"
+              "• Stable screenshot workflow",
 
               style: TextStyle(
                 color: Colors.white54,
