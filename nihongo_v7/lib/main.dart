@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:speech_to_text/speech_to_text.dart';
+import 'package:translator/translator.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,19 +20,75 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
-  static const platform =
-      MethodChannel('overlay_channel');
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
 
-  Future<void> startOverlay() async {
+class _HomePageState extends State<HomePage> {
 
-    try {
-      await platform.invokeMethod(
-        'startOverlay'
-      );
-    } catch (_) {}
+  final SpeechToText speech = SpeechToText();
+  final translator = GoogleTranslator();
+
+  String japaneseText = "Waiting for Japanese speech...";
+  String englishText = "English translation will appear here";
+
+  bool isListening = false;
+
+  Future<void> startListening() async {
+
+    await Permission.microphone.request();
+
+    bool available = await speech.initialize();
+
+    if (!available) {
+      return;
+    }
+
+    setState(() {
+      isListening = true;
+    });
+
+    speech.listen(
+      localeId: 'ja_JP',
+      listenMode: ListenMode.dictation,
+      partialResults: true,
+      onResult: (result) async {
+
+        japaneseText = result.recognizedWords;
+
+        if (japaneseText.isNotEmpty) {
+
+          try {
+
+            final translation =
+                await translator.translate(
+              japaneseText,
+              from: 'ja',
+              to: 'en',
+            );
+
+            setState(() {
+              englishText = translation.text;
+            });
+
+          } catch (_) {}
+        }
+
+        setState(() {});
+      },
+    );
+  }
+
+  void stopListening() {
+
+    speech.stop();
+
+    setState(() {
+      isListening = false;
+    });
   }
 
   @override
@@ -39,14 +97,48 @@ class HomePage extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.black,
 
-      body: Center(
-        child: ElevatedButton(
+      body: Padding(
+        padding: const EdgeInsets.all(20),
 
-          onPressed: startOverlay,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
 
-          child: const Text(
-            "START OVERLAY"
-          ),
+            Text(
+              japaneseText,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 24,
+              ),
+            ),
+
+            const SizedBox(height: 30),
+
+            Text(
+              englishText,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.greenAccent,
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+
+            const SizedBox(height: 40),
+
+            ElevatedButton(
+              onPressed: isListening
+                  ? stopListening
+                  : startListening,
+
+              child: Text(
+                isListening
+                    ? 'STOP LISTENING'
+                    : 'START LIVE TRANSLATION',
+              ),
+            ),
+          ],
         ),
       ),
     );
