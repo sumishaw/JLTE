@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:collection';
 
 import 'package:flutter/material.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
@@ -48,6 +49,9 @@ class _HomePageState extends State<HomePage> {
             TranslateLanguage.english,
       );
 
+  final Map<String, String>
+      translationCache = HashMap();
+
   String japanese =
       "Waiting for subtitles...";
 
@@ -63,6 +67,8 @@ class _HomePageState extends State<HomePage> {
 
   bool processing = false;
 
+  int refreshMs = 1200;
+
   @override
   void initState() {
 
@@ -74,7 +80,7 @@ class _HomePageState extends State<HomePage> {
   void startLiveOCR() {
 
     timer = Timer.periodic(
-      const Duration(milliseconds: 1200),
+      Duration(milliseconds: refreshMs),
       (_) async {
 
         if (!processing) {
@@ -105,7 +111,7 @@ class _HomePageState extends State<HomePage> {
         setState(() {
 
           status =
-              "Waiting for captured frames...";
+              "Waiting for live frames...";
         });
 
         return;
@@ -114,7 +120,7 @@ class _HomePageState extends State<HomePage> {
       setState(() {
 
         status =
-            "Scanning subtitles...";
+            "Scanning subtitle region...";
       });
 
       final inputImage =
@@ -128,7 +134,9 @@ class _HomePageState extends State<HomePage> {
           );
 
       String jp =
-          result.text.trim();
+          cleanupJapaneseText(
+            result.text.trim(),
+          );
 
       if (jp.isEmpty) {
 
@@ -141,13 +149,7 @@ class _HomePageState extends State<HomePage> {
         return;
       }
 
-      // Cleanup OCR noise
-
-      jp = cleanupJapaneseText(jp);
-
-      if (jp.isEmpty) return;
-
-      // Duplicate filtering
+      // Ignore duplicates
 
       if (jp == lastSubtitle) {
 
@@ -162,8 +164,38 @@ class _HomePageState extends State<HomePage> {
 
       lastSubtitle = jp;
 
-      final translated =
-          await translator.translateText(jp);
+      // Translation cache
+
+      String translated;
+
+      if (
+          translationCache.containsKey(jp)
+      ) {
+
+        translated =
+            translationCache[jp]!;
+
+      } else {
+
+        translated =
+            await translator.translateText(
+              jp,
+            );
+
+        translationCache[jp] =
+            translated;
+      }
+
+      // Adaptive refresh
+
+      if (jp.length > 25) {
+
+        refreshMs = 1800;
+
+      } else {
+
+        refreshMs = 900;
+      }
 
       setState(() {
 
@@ -196,15 +228,30 @@ class _HomePageState extends State<HomePage> {
 
       if (e.isEmpty) return false;
 
-      // Ignore tiny garbage
+      // Ignore tiny noise
 
       if (e.length < 2) return false;
 
-      // Must contain Japanese chars
+      // Must contain Japanese
 
-      return RegExp(
-        r'[\u3040-\u30ff\u4e00-\u9faf]'
-      ).hasMatch(e);
+      final hasJapanese =
+          RegExp(
+            r'[\u3040-\u30ff\u4e00-\u9faf]'
+          ).hasMatch(e);
+
+      if (!hasJapanese) return false;
+
+      // Ignore UI garbage
+
+      if (
+          e.contains("www") ||
+          e.contains("http") ||
+          e.contains("字幕")
+      ) {
+        return false;
+      }
+
+      return true;
 
     }).toList();
 
@@ -369,12 +416,13 @@ class _HomePageState extends State<HomePage> {
 
             const Text(
 
-              "LIVE OCR ENGINE\n\n"
-              "• Continuous frame capture\n"
+              "ADVANCED LIVE OCR ENGINE\n\n"
+              "• Continuous screen capture\n"
               "• Japanese subtitle filtering\n"
               "• Duplicate subtitle removal\n"
-              "• Real-time translation updates\n"
-              "• Optimized OCR loop",
+              "• Translation caching\n"
+              "• Adaptive OCR refresh\n"
+              "• Live subtitle updates",
 
               style: TextStyle(
                 fontSize: 16,
