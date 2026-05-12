@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'package:google_translator/google_translator.dart';
+import 'package:translator/translator.dart';
 
 void main() {
 
@@ -70,18 +70,9 @@ class _HomePageState
 
     running = true;
 
-    try {
-
-      await platform.invokeMethod(
-        'requestOverlayPermission',
-      );
-
-    } catch (e) {
-
-      print(
-        "PERMISSION ERROR: $e",
-      );
-    }
+    await platform.invokeMethod(
+      'requestOverlayPermission',
+    );
 
     timer = Timer.periodic(
 
@@ -93,18 +84,6 @@ class _HomePageState
 
         await fetchSubtitle();
       },
-    );
-
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(
-
-      const SnackBar(
-
-        content: Text(
-          "Live translation started",
-        ),
-      ),
     );
   }
 
@@ -139,69 +118,29 @@ class _HomePageState
 
       setState(() {});
 
-      print(
-        "JAPANESE DETECTED: $jp",
+      Translation translated =
+          await translator.translate(
+        jp,
+        from: 'ja',
+        to: 'en',
       );
 
-      String translatedText =
-          "";
-
-      try {
-
-        translatedText =
-            await translator.translate(
-          jp,
-          from: 'ja',
-          to: 'en',
-        );
-
-      } catch (e) {
-
-        print(
-          "TRANSLATION ERROR: $e",
-        );
-
-        translatedText =
-            "Translation failed";
-      }
-
-      if (
-          translatedText.trim().isEmpty
-      ) {
-
-        translatedText =
-            "No translation";
-      }
-
       englishText =
-          translatedText;
+          translated.text;
 
       setState(() {});
 
-      print(
-        "ENGLISH: $englishText",
+      await platform.invokeMethod(
+        'showOverlay',
+        {
+          "text": englishText,
+        },
       );
-
-      try {
-
-        await platform.invokeMethod(
-          'showOverlay',
-          {
-            "text": englishText,
-          },
-        );
-
-      } catch (e) {
-
-        print(
-          "OVERLAY ERROR: $e",
-        );
-      }
 
     } catch (e) {
 
       print(
-        "FETCH ERROR: $e",
+        "TRANSLATION ERROR: $e",
       );
     }
   }
