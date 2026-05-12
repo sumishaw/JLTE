@@ -37,7 +37,31 @@ class ScreenCaptureService : Service() {
             createNotification()
         )
 
-        startCapture()
+        try {
+
+            if (ScreenCaptureHolder.data == null) {
+
+                Log.e(
+                    "ScreenCapture",
+                    "Projection data is NULL"
+                )
+
+                stopSelf()
+
+                return START_NOT_STICKY
+            }
+
+            startCapture()
+
+        } catch (e: Exception) {
+
+            Log.e(
+                "ScreenCapture",
+                "Start error: ${e.message}"
+            )
+
+            stopSelf()
+        }
 
         return START_STICKY
     }
@@ -56,6 +80,18 @@ class ScreenCaptureService : Service() {
                     ScreenCaptureHolder.resultCode,
                     ScreenCaptureHolder.data!!
                 )
+
+            if (mediaProjection == null) {
+
+                Log.e(
+                    "ScreenCapture",
+                    "MediaProjection is NULL"
+                )
+
+                stopSelf()
+
+                return
+            }
 
             val metrics = DisplayMetrics()
 
@@ -89,15 +125,17 @@ class ScreenCaptureService : Service() {
 
             Log.d(
                 "ScreenCapture",
-                "Capture started"
+                "Capture initialized"
             )
 
         } catch (e: Exception) {
 
             Log.e(
                 "ScreenCapture",
-                "Error: ${e.message}"
+                "Capture error: ${e.message}"
             )
+
+            stopSelf()
         }
     }
 
@@ -130,7 +168,9 @@ class ScreenCaptureService : Service() {
             this,
             channelId
         )
-            .setContentTitle("Nihongo Lens")
+            .setContentTitle(
+                "Nihongo Lens"
+            )
             .setContentText(
                 "Live OCR capture running"
             )
