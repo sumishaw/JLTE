@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Intent
 import android.media.projection.MediaProjectionManager
 import android.os.Bundle
+import android.view.View
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
@@ -72,7 +73,15 @@ class MainActivity : FlutterActivity() {
                         call.argument<String>("text")
 
                     OverlayService.overlayText
-                        ?.text = text
+                        ?.post {
+
+                            OverlayService.overlayText
+                                ?.text = text
+
+                            OverlayService.overlayText
+                                ?.visibility =
+                                    View.VISIBLE
+                        }
 
                     result.success(true)
                 }
