@@ -15,12 +15,15 @@ import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.IBinder
 import android.util.DisplayMetrics
+import android.util.Log
 import android.view.WindowManager
 
 class ScreenCaptureService : Service() {
 
     private var mediaProjection: MediaProjection? = null
+
     private var virtualDisplay: VirtualDisplay? = null
+
     private var imageReader: ImageReader? = null
 
     override fun onStartCommand(
@@ -41,47 +44,71 @@ class ScreenCaptureService : Service() {
 
     private fun startCapture() {
 
-        val manager =
-            getSystemService(Context.MEDIA_PROJECTION_SERVICE)
-                    as MediaProjectionManager
+        try {
 
-        mediaProjection = manager.getMediaProjection(
-            ScreenCaptureHolder.resultCode,
-            ScreenCaptureHolder.data!!
-        )
+            val manager =
+                getSystemService(
+                    Context.MEDIA_PROJECTION_SERVICE
+                ) as MediaProjectionManager
 
-        val metrics = DisplayMetrics()
+            mediaProjection =
+                manager.getMediaProjection(
+                    ScreenCaptureHolder.resultCode,
+                    ScreenCaptureHolder.data!!
+                )
 
-        val windowManager =
-            getSystemService(WINDOW_SERVICE)
-                    as WindowManager
+            val metrics = DisplayMetrics()
 
-        windowManager.defaultDisplay.getRealMetrics(metrics)
+            val windowManager =
+                getSystemService(
+                    WINDOW_SERVICE
+                ) as WindowManager
 
-        imageReader = ImageReader.newInstance(
-            metrics.widthPixels,
-            metrics.heightPixels,
-            ImageFormat.RGBA_8888,
-            2
-        )
+            windowManager.defaultDisplay
+                .getRealMetrics(metrics)
 
-        virtualDisplay = mediaProjection?.createVirtualDisplay(
-            "NihongoLensCapture",
-            metrics.widthPixels,
-            metrics.heightPixels,
-            metrics.densityDpi,
-            DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
-            imageReader?.surface,
-            null,
-            null
-        )
+            imageReader = ImageReader.newInstance(
+                metrics.widthPixels,
+                metrics.heightPixels,
+                ImageFormat.RGBA_8888,
+                2
+            )
+
+            virtualDisplay =
+                mediaProjection?.createVirtualDisplay(
+                    "NihongoLensCapture",
+                    metrics.widthPixels,
+                    metrics.heightPixels,
+                    metrics.densityDpi,
+                    DisplayManager
+                        .VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
+                    imageReader?.surface,
+                    null,
+                    null
+                )
+
+            Log.d(
+                "ScreenCapture",
+                "Capture started"
+            )
+
+        } catch (e: Exception) {
+
+            Log.e(
+                "ScreenCapture",
+                "Error: ${e.message}"
+            )
+        }
     }
 
     private fun createNotification(): Notification {
 
         val channelId = "capture_channel"
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        if (
+            Build.VERSION.SDK_INT >=
+            Build.VERSION_CODES.O
+        ) {
 
             val channel = NotificationChannel(
                 channelId,
@@ -90,26 +117,41 @@ class ScreenCaptureService : Service() {
             )
 
             val manager =
-                getSystemService(NotificationManager::class.java)
+                getSystemService(
+                    NotificationManager::class.java
+                )
 
-            manager.createNotificationChannel(channel)
+            manager.createNotificationChannel(
+                channel
+            )
         }
 
-        return Notification.Builder(this, channelId)
+        return Notification.Builder(
+            this,
+            channelId
+        )
             .setContentTitle("Nihongo Lens")
-            .setContentText("Live OCR capture running")
-            .setSmallIcon(android.R.drawable.ic_menu_camera)
+            .setContentText(
+                "Live OCR capture running"
+            )
+            .setSmallIcon(
+                android.R.drawable.ic_menu_camera
+            )
             .build()
     }
 
     override fun onDestroy() {
 
         virtualDisplay?.release()
+
         imageReader?.close()
+
         mediaProjection?.stop()
 
         super.onDestroy()
     }
 
-    override fun onBind(intent: Intent?): IBinder? = null
+    override fun onBind(
+        intent: Intent?
+    ): IBinder? = null
 }
