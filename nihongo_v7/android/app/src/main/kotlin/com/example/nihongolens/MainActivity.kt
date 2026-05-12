@@ -14,6 +14,10 @@ import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
 
+    companion object {
+        var instance: MainActivity? = null
+    }
+
     private val CHANNEL = "overlay_channel"
 
     private val REQUEST_MEDIA_PROJECTION = 1001
@@ -21,15 +25,19 @@ class MainActivity : FlutterActivity() {
     private lateinit var mediaProjectionManager:
             MediaProjectionManager
 
+    private lateinit var whisperChannel:
+            MethodChannel
+
     override fun onCreate(savedInstanceState: Bundle?) {
 
         super.onCreate(savedInstanceState)
+
+        instance = this
 
         mediaProjectionManager =
             getSystemService(MEDIA_PROJECTION_SERVICE)
                     as MediaProjectionManager
 
-        // Download Whisper model automatically
         Thread {
 
             try {
@@ -49,6 +57,12 @@ class MainActivity : FlutterActivity() {
     ) {
 
         super.configureFlutterEngine(flutterEngine)
+
+        whisperChannel =
+            MethodChannel(
+                flutterEngine.dartExecutor.binaryMessenger,
+                "whisper_channel"
+            )
 
         MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
@@ -101,10 +115,35 @@ class MainActivity : FlutterActivity() {
                     result.success(true)
                 }
 
+                "updateOverlay" -> {
+
+                    val text =
+                        call.argument<String>("text")
+                            ?: ""
+
+                    OverlayService.latestSubtitle =
+                        text
+
+                    result.success(true)
+                }
+
                 else -> {
                     result.notImplemented()
                 }
             }
+        }
+    }
+
+    fun sendTranscription(
+        text: String
+    ) {
+
+        runOnUiThread {
+
+            whisperChannel.invokeMethod(
+                "onTranscription",
+                text
+            )
         }
     }
 
