@@ -8,4 +8,4 @@
     android:canRetrieveWindowContent="true"
     android:accessibilityFlags="flagReportViewIds|flagRetrieveInteractiveWindows"
     android:canPerformGestures="true"
-    android:description="@string/app_name"/>
+    android:description="Nihongo Lens Accessibility Service"/>
