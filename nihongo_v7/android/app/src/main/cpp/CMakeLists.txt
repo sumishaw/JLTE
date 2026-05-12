@@ -3,9 +3,11 @@ cmake_minimum_required(VERSION 3.22.1)
 project("whisper_jni")
 
 add_library(
-        whisper
+        whisper_jni
         SHARED
         whisper-jni.cpp
+        whisper.cpp
+        ggml.c
 )
 
 find_library(
@@ -14,6 +16,6 @@ find_library(
 )
 
 target_link_libraries(
-        whisper
+        whisper_jni
         ${log-lib}
 )
