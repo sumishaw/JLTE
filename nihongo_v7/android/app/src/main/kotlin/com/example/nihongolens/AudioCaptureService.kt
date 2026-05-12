@@ -160,6 +160,23 @@ class AudioCaptureService : Service() {
                     "WAV capture complete"
                 )
 
+                val modelPath =
+                    File(
+                        filesDir,
+                        "ggml-tiny.bin"
+                    ).absolutePath
+
+                val transcription =
+                    WhisperManager.transcribeAudio(
+                        modelPath,
+                        outputFile.absolutePath
+                    )
+
+                Log.d(
+                    "WHISPER_RESULT",
+                    transcription
+                )
+
             }.start()
 
         } catch (e: Exception) {
