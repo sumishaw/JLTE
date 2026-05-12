@@ -13,7 +13,7 @@ class MainActivity : FlutterActivity() {
 
     companion object {
 
-        var overlayText = "Waiting..."
+        var overlayText = ""
     }
 
     private val CHANNEL =
@@ -39,14 +39,19 @@ class MainActivity : FlutterActivity() {
 
             when (call.method) {
 
-                "startOverlay" -> {
+                "getSubtitleText" -> {
+
+                    result.success(
+                        overlayText
+                    )
+                }
+
+                "requestOverlayPermission" -> {
 
                     if (
                         Build.VERSION.SDK_INT >=
                         Build.VERSION_CODES.M &&
-                        !Settings.canDrawOverlays(
-                            this
-                        )
+                        !Settings.canDrawOverlays(this)
                     ) {
 
                         val intent = Intent(
@@ -57,31 +62,9 @@ class MainActivity : FlutterActivity() {
                         )
 
                         startActivity(intent)
-
-                        result.success(
-                            "Overlay permission requested"
-                        )
-
-                    } else {
-
-                        result.success(
-                            "Overlay already granted"
-                        )
                     }
-                }
 
-                "updateOverlay" -> {
-
-                    val text =
-                        call.argument<String>(
-                            "text"
-                        ) ?: ""
-
-                    overlayText = text
-
-                    result.success(
-                        "Updated"
-                    )
+                    result.success(true)
                 }
 
                 else -> {
