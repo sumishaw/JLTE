@@ -21,6 +21,7 @@ class AudioCaptureService : Service() {
 
     private var mediaProjection: MediaProjection? = null
     private var audioRecord: AudioRecord? = null
+    private var isRunning = false
 
     override fun onStartCommand(
         intent: Intent?,
@@ -47,17 +48,29 @@ class AudioCaptureService : Service() {
             return START_NOT_STICKY
         }
 
-        val projectionManager =
-            getSystemService(MEDIA_PROJECTION_SERVICE)
-                    as MediaProjectionManager
+        try {
 
-        mediaProjection =
-            projectionManager.getMediaProjection(
-                resultCode,
-                data
+            val projectionManager =
+                getSystemService(MEDIA_PROJECTION_SERVICE)
+                        as MediaProjectionManager
+
+            mediaProjection =
+                projectionManager.getMediaProjection(
+                    resultCode,
+                    data
+                )
+
+            startAudioCapture()
+
+        } catch (e: Exception) {
+
+            Log.e(
+                "AUDIO_CAPTURE",
+                "Projection error: ${e.message}"
             )
 
-        startAudioCapture()
+            stopSelf()
+        }
 
         return START_STICKY
     }
@@ -72,6 +85,7 @@ class AudioCaptureService : Service() {
                 )
                     .addMatchingUsage(AudioAttributes.USAGE_MEDIA)
                     .addMatchingUsage(AudioAttributes.USAGE_GAME)
+                    .addMatchingUsage(AudioAttributes.USAGE_UNKNOWN)
                     .build()
 
             val sampleRate = 44100
@@ -88,6 +102,19 @@ class AudioCaptureService : Service() {
                     channelConfig,
                     audioFormat
                 )
+
+            if (bufferSize == AudioRecord.ERROR ||
+                bufferSize == AudioRecord.ERROR_BAD_VALUE
+            ) {
+
+                Log.e(
+                    "AUDIO_CAPTURE",
+                    "Invalid buffer size"
+                )
+
+                stopSelf()
+                return
+            }
 
             audioRecord =
                 AudioRecord.Builder()
@@ -113,35 +140,81 @@ class AudioCaptureService : Service() {
                 return
             }
 
-            audioRecord?.startRecording()
+            try {
+
+                audioRecord?.startRecording()
+
+                if (
+                    audioRecord?.recordingState
+                    != AudioRecord.RECORDSTATE_RECORDING
+                ) {
+
+                    Log.e(
+                        "AUDIO_CAPTURE",
+                        "Recording failed to start"
+                    )
+
+                    stopSelf()
+                    return
+                }
+
+            } catch (e: Exception) {
+
+                Log.e(
+                    "AUDIO_CAPTURE",
+                    "startRecording crash: ${e.message}"
+                )
+
+                stopSelf()
+                return
+            }
 
             Log.d(
                 "AUDIO_CAPTURE",
                 "Audio capture started successfully"
             )
 
+            isRunning = true
+
             Thread {
 
                 val buffer = ByteArray(bufferSize)
 
-                while (true) {
+                while (
+                    isRunning &&
+                    audioRecord != null &&
+                    audioRecord?.recordingState ==
+                    AudioRecord.RECORDSTATE_RECORDING
+                ) {
 
-                    val read =
-                        audioRecord?.read(
-                            buffer,
-                            0,
-                            buffer.size
-                        ) ?: 0
+                    try {
 
-                    if (read > 0) {
+                        val read =
+                            audioRecord?.read(
+                                buffer,
+                                0,
+                                buffer.size
+                            ) ?: 0
 
-                        Log.d(
+                        if (read > 0) {
+
+                            Log.d(
+                                "AUDIO_LEVEL",
+                                "VOICE DETECTED: $read bytes"
+                            )
+
+                            // TODO:
+                            // Speech recognition pipeline here
+                        }
+
+                    } catch (e: Exception) {
+
+                        Log.e(
                             "AUDIO_CAPTURE",
-                            "Audio detected: $read bytes"
+                            "Read error: ${e.message}"
                         )
 
-                        // TODO:
-                        // Send buffer to speech recognition
+                        break
                     }
                 }
 
@@ -155,6 +228,8 @@ class AudioCaptureService : Service() {
             )
 
             e.printStackTrace()
+
+            stopSelf()
         }
     }
 
@@ -191,11 +266,16 @@ class AudioCaptureService : Service() {
 
         super.onDestroy()
 
+        isRunning = false
+
         try {
 
             audioRecord?.stop()
             audioRecord?.release()
+            audioRecord = null
+
             mediaProjection?.stop()
+            mediaProjection = null
 
         } catch (e: Exception) {
 
