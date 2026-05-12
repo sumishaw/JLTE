@@ -1,5 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
+import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+
 import 'package:translator/translator.dart';
 
 void main() {
@@ -42,129 +47,111 @@ class _HomePageState
   final translator =
       GoogleTranslator();
 
+  final textRecognizer =
+      TextRecognizer(
+        script:
+        TextRecognitionScript.japanese,
+      );
+
   static const platform =
       MethodChannel(
         'overlay_channel',
       );
 
-  static const whisperChannel =
-      MethodChannel(
-        'whisper_channel',
-      );
-
   String japaneseText =
-      "Waiting for Japanese transcription...";
+      "Waiting for Japanese subtitles...";
 
   String englishText =
       "Waiting for English translation...";
 
-  @override
-  void initState() {
+  Timer? timer;
 
-    super.initState();
+  bool isRunning = false;
 
-    whisperChannel.setMethodCallHandler(
-      (call) async {
+  Future<void> startSystem() async {
 
-        try {
+    if (isRunning) return;
 
-          if (call.method ==
-              "onTranscription") {
-
-            final japanese =
-                call.arguments.toString();
-
-            print(
-              "Japanese: $japanese",
-            );
-
-            setState(() {
-
-              japaneseText =
-                  japanese;
-            });
-
-            final translation =
-                await translator.translate(
-              japanese,
-              from: 'ja',
-              to: 'en',
-            );
-
-            print(
-              "English: ${translation.text}",
-            );
-
-            setState(() {
-
-              englishText =
-                  translation.text;
-            });
-
-            try {
-
-              await platform.invokeMethod(
-                'updateOverlay',
-                {
-                  "text":
-                      englishText
-                },
-              );
-
-            } catch (e) {
-
-              print(
-                "Overlay update error: $e",
-              );
-            }
-          }
-
-        } catch (e) {
-
-          print(
-            "Translation error: $e",
-          );
-        }
-      },
-    );
-  }
-
-  Future<void> startCapture() async {
+    isRunning = true;
 
     try {
 
-      print(
-        "Starting overlay...",
-      );
-
-      final overlay =
-          await platform.invokeMethod(
+      await platform.invokeMethod(
         'startOverlay',
-      );
-
-      print(
-        "Overlay result: $overlay",
-      );
-
-      print(
-        "Starting internal audio capture...",
-      );
-
-      final capture =
-          await platform.invokeMethod(
-        'startInternalAudioCapture',
-      );
-
-      print(
-        "Capture result: $capture",
       );
 
     } catch (e) {
 
-      print(
-        "ERROR: $e",
-      );
+      print(e);
     }
+
+    timer = Timer.periodic(
+
+      const Duration(
+        seconds: 3,
+      ),
+
+      (_) async {
+
+        await detectJapaneseText();
+      },
+    );
+  }
+
+  Future<void> detectJapaneseText() async {
+
+    try {
+
+      // PLACEHOLDER:
+      // Replace later with real screenshot OCR
+
+      final fakeJapanese =
+          "こんにちは";
+
+      japaneseText =
+          fakeJapanese;
+
+      final translation =
+          await translator.translate(
+        fakeJapanese,
+        from: 'ja',
+        to: 'en',
+      );
+
+      englishText =
+          translation.text;
+
+      setState(() {});
+
+      try {
+
+        await platform.invokeMethod(
+          'updateOverlay',
+          {
+            "text":
+            englishText,
+          },
+        );
+
+      } catch (e) {
+
+        print(e);
+      }
+
+    } catch (e) {
+
+      print(e);
+    }
+  }
+
+  @override
+  void dispose() {
+
+    timer?.cancel();
+
+    textRecognizer.close();
+
+    super.dispose();
   }
 
   @override
@@ -173,24 +160,24 @@ class _HomePageState
     return Scaffold(
 
       backgroundColor:
-          Colors.black,
+      Colors.black,
 
       body: Padding(
 
         padding:
-            const EdgeInsets.all(
+        const EdgeInsets.all(
           20,
         ),
 
         child: Column(
 
           mainAxisAlignment:
-              MainAxisAlignment
-                  .center,
+          MainAxisAlignment
+              .center,
 
           crossAxisAlignment:
-              CrossAxisAlignment
-                  .start,
+          CrossAxisAlignment
+              .start,
 
           children: [
 
@@ -199,17 +186,17 @@ class _HomePageState
               japaneseText,
 
               style:
-                  const TextStyle(
+              const TextStyle(
 
                 color:
-                    Colors.white,
+                Colors.white,
 
-                fontSize: 24,
+                fontSize: 26,
               ),
             ),
 
             const SizedBox(
-              height: 20,
+              height: 30,
             ),
 
             Text(
@@ -217,30 +204,29 @@ class _HomePageState
               englishText,
 
               style:
-                  const TextStyle(
+              const TextStyle(
 
                 color: Colors
                     .greenAccent,
 
-                fontSize: 30,
+                fontSize: 34,
 
                 fontWeight:
-                    FontWeight
-                        .bold,
+                FontWeight.bold,
               ),
             ),
 
             const SizedBox(
-              height: 40,
+              height: 50,
             ),
 
             ElevatedButton(
 
               onPressed:
-                  startCapture,
+              startSystem,
 
               child: const Text(
-                "START LIVE TRANSLATION",
+                "START OCR TRANSLATOR",
               ),
             ),
           ],
