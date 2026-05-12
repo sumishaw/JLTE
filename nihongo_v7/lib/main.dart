@@ -1,11 +1,9 @@
 import 'dart:async';
 import 'dart:collection';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import 'package:flutter/services.dart';
 import 'package:google_mlkit_translation/google_mlkit_translation.dart';
-import 'package:path_provider/path_provider.dart';
 
 void main() {
   runApp(const MyApp());
@@ -35,10 +33,14 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
 
-  final recognizer =
-      TextRecognizer(
-        script:
-            TextRecognitionScript.japanese,
+  static const methodChannel =
+      MethodChannel(
+        "nihongo_lens/capture",
+      );
+
+  static const eventChannel =
+      EventChannel(
+        "nihongo_lens/subtitles",
       );
 
   late final OnDeviceTranslator
@@ -46,6 +48,8 @@ class _HomePageState extends State<HomePage> {
 
   final Map<String, String>
       translationCache = HashMap();
+
+  StreamSubscription? subscription;
 
   String japanese =
       "Waiting for subtitles...";
@@ -58,21 +62,16 @@ class _HomePageState extends State<HomePage> {
 
   String lastSubtitle = "";
 
-  Timer? timer;
-
-  bool processing = false;
-
-  int refreshMs = 1200;
+  bool translating = false;
 
   @override
   void initState() {
 
     super.initState();
 
-    initTranslator().then((_) {
+    initTranslator();
 
-      startLiveOCR();
-    });
+    startSubtitleStream();
   }
 
   Future<void> initTranslator() async {
@@ -91,142 +90,123 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  void startLiveOCR() {
+  void startSubtitleStream() {
 
-    timer = Timer.periodic(
-      Duration(milliseconds: refreshMs),
-      (_) async {
+    subscription =
+        eventChannel
+            .receiveBroadcastStream()
+            .listen(
 
-        if (!processing) {
+      (event) async {
 
-          processing = true;
+        if (translating) return;
 
-          await processLatestFrame();
+        translating = true;
 
-          processing = false;
+        try {
+
+          final jp =
+              event.toString().trim();
+
+          if (jp.isEmpty) {
+
+            translating = false;
+
+            return;
+          }
+
+          if (jp == lastSubtitle) {
+
+            translating = false;
+
+            return;
+          }
+
+          lastSubtitle = jp;
+
+          setState(() {
+
+            japanese = jp;
+
+            status =
+                "Translating subtitle...";
+          });
+
+          String translated;
+
+          if (
+              translationCache
+                  .containsKey(jp)
+          ) {
+
+            translated =
+                translationCache[jp]!;
+
+          } else {
+
+            try {
+
+              translated =
+                  await translator
+                      .translateText(
+                        jp,
+                      );
+
+            } catch (e) {
+
+              translated =
+                  "Translation failed";
+            }
+
+            translationCache[jp] =
+                translated;
+          }
+
+          setState(() {
+
+            english = translated;
+
+            status =
+                "Live subtitle updated";
+          });
+
+        } catch (e) {
+
+          setState(() {
+
+            status =
+                "Error: ${e.toString()}";
+          });
+
+        } finally {
+
+          translating = false;
         }
+      },
+
+      onError: (error) {
+
+        setState(() {
+
+          status =
+              "Subtitle stream failed";
+        });
       },
     );
   }
 
-  Future<void> processLatestFrame() async {
+  Future<void> startCapture() async {
 
     try {
 
-      final dir =
-          await getApplicationDocumentsDirectory();
-
-      final file = File(
-        "${dir.path}/captures/latest_frame.png",
+      await methodChannel.invokeMethod(
+        "startCapture",
       );
 
-      if (!await file.exists()) {
-
-        setState(() {
-
-          status =
-              "Waiting for live frames...";
-        });
-
-        return;
-      }
-
       setState(() {
 
         status =
-            "Scanning subtitles...";
-      });
-
-      final inputImage =
-          InputImage.fromFilePath(
-            file.path,
-          );
-
-      final result =
-          await recognizer.processImage(
-            inputImage,
-          );
-
-      String jp =
-          cleanupJapaneseText(
-            result.text.trim(),
-          );
-
-      if (jp.isEmpty) {
-
-        setState(() {
-
-          status =
-              "No subtitles detected";
-        });
-
-        return;
-      }
-
-      // Ignore duplicates
-
-      if (jp == lastSubtitle) {
-
-        setState(() {
-
-          status =
-              "Waiting for new subtitle...";
-        });
-
-        return;
-      }
-
-      lastSubtitle = jp;
-
-      // Translation cache
-
-      String translated;
-
-      if (
-          translationCache.containsKey(jp)
-      ) {
-
-        translated =
-            translationCache[jp]!;
-
-      } else {
-
-        try {
-
-          translated =
-              await translator.translateText(
-                jp,
-              );
-
-        } catch (e) {
-
-          translated =
-              "Translation failed";
-        }
-
-        translationCache[jp] =
-            translated;
-      }
-
-      // Adaptive refresh
-
-      if (jp.length > 25) {
-
-        refreshMs = 1800;
-
-      } else {
-
-        refreshMs = 900;
-      }
-
-      setState(() {
-
-        japanese = jp;
-
-        english = translated;
-
-        status =
-            "Live subtitle updated";
+            "Waiting for live subtitles...";
       });
 
     } catch (e) {
@@ -234,57 +214,15 @@ class _HomePageState extends State<HomePage> {
       setState(() {
 
         status =
-            "Error: ${e.toString()}";
+            "Capture failed";
       });
     }
-  }
-
-  String cleanupJapaneseText(
-      String text) {
-
-    final lines =
-        text
-            .split("\n")
-            .map((e) => e.trim())
-            .where((e) {
-
-      if (e.isEmpty) return false;
-
-      // Ignore tiny noise
-
-      if (e.length < 2) return false;
-
-      // Must contain Japanese
-
-      final hasJapanese =
-          RegExp(
-            r'[\u3040-\u30ff\u4e00-\u9faf]'
-          ).hasMatch(e);
-
-      if (!hasJapanese) return false;
-
-      // Ignore garbage
-
-      if (
-          e.contains("www") ||
-          e.contains("http")
-      ) {
-        return false;
-      }
-
-      return true;
-
-    }).toList();
-
-    return lines.join("\n");
   }
 
   @override
   void dispose() {
 
-    timer?.cancel();
-
-    recognizer.close();
+    subscription?.cancel();
 
     translator.close();
 
@@ -299,6 +237,20 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         title: const Text(
           "Nihongo Lens Live",
+        ),
+      ),
+
+      floatingActionButton:
+          FloatingActionButton.extended(
+
+        onPressed: startCapture,
+
+        icon: const Icon(
+          Icons.play_arrow,
+        ),
+
+        label: const Text(
+          "Start Live Capture",
         ),
       ),
 
@@ -437,13 +389,13 @@ class _HomePageState extends State<HomePage> {
 
             const Text(
 
-              "ADVANCED LIVE OCR ENGINE\n\n"
-              "• Continuous screen capture\n"
-              "• Japanese subtitle filtering\n"
-              "• Duplicate subtitle removal\n"
+              "REAL-TIME LIVE OCR ENGINE\n\n"
+              "• Native Kotlin OCR\n"
+              "• EventChannel subtitle streaming\n"
+              "• Real-time Japanese detection\n"
+              "• Live English translation\n"
               "• Translation caching\n"
-              "• Adaptive OCR refresh\n"
-              "• Offline translation engine",
+              "• Duplicate subtitle filtering",
 
               style: TextStyle(
                 fontSize: 16,
