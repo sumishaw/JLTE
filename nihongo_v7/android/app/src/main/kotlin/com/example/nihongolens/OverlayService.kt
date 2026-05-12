@@ -3,100 +3,180 @@ package com.example.nihongolens
 import android.app.Service
 import android.content.Intent
 import android.graphics.PixelFormat
+import android.os.Build
 import android.os.IBinder
 import android.view.Gravity
+import android.view.MotionEvent
+import android.view.View
 import android.view.WindowManager
 import android.widget.TextView
 
 class OverlayService : Service() {
 
-    private lateinit var windowManager:
-            WindowManager
+    companion object {
 
-    private lateinit var subtitleView:
-            TextView
-
-    override fun onBind(
-        intent: Intent?
-    ): IBinder? {
-
-        return null
+        var overlayText:
+            TextView? = null
     }
+
+    private lateinit var windowManager:
+        WindowManager
+
+    private lateinit var textView:
+        TextView
 
     override fun onCreate() {
 
         super.onCreate()
-
-        subtitleView = TextView(this)
-
-        subtitleView.text =
-            "Waiting for translation..."
-
-        subtitleView.textSize = 22f
-
-        subtitleView.setTextColor(
-            android.graphics.Color.WHITE
-        )
-
-        subtitleView.setBackgroundColor(
-            0x88000000.toInt()
-        )
-
-        val params =
-            WindowManager.LayoutParams(
-
-                WindowManager.LayoutParams.MATCH_PARENT,
-
-                WindowManager.LayoutParams.WRAP_CONTENT,
-
-                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
-
-                PixelFormat.TRANSLUCENT
-            )
-
-        params.gravity =
-            Gravity.BOTTOM
-
-        params.y = 200
 
         windowManager =
             getSystemService(
                 WINDOW_SERVICE
             ) as WindowManager
 
-        windowManager.addView(
-            subtitleView,
-            params
+        textView = TextView(this)
+
+        textView.text =
+            "Waiting for subtitles..."
+
+        textView.textSize = 24f
+
+        textView.setPadding(
+            30,
+            20,
+            30,
+            20
         )
-    }
 
-    override fun onStartCommand(
-        intent: Intent?,
-        flags: Int,
-        startId: Int
-    ): Int {
+        textView.setTextColor(
+            android.graphics.Color.WHITE
+        )
 
-        val text =
-            intent?.getStringExtra(
-                "text"
+        textView.setBackgroundColor(
+            0x88000000.toInt()
+        )
+
+        val params =
+            WindowManager.LayoutParams(
+
+                WindowManager.LayoutParams
+                    .WRAP_CONTENT,
+
+                WindowManager.LayoutParams
+                    .WRAP_CONTENT,
+
+                if (
+                    Build.VERSION.SDK_INT >=
+                    Build.VERSION_CODES.O
+                )
+
+                    WindowManager.LayoutParams
+                        .TYPE_APPLICATION_OVERLAY
+
+                else
+
+                    WindowManager.LayoutParams
+                        .TYPE_PHONE,
+
+                WindowManager.LayoutParams
+                    .FLAG_NOT_FOCUSABLE,
+
+                PixelFormat.TRANSLUCENT
             )
 
-        if (text != null) {
+        params.gravity =
+            Gravity.TOP or Gravity.CENTER_HORIZONTAL
 
-            subtitleView.text = text
-        }
+        params.x = 0
 
-        return START_STICKY
+        params.y = 200
+
+        textView.setOnTouchListener(
+
+            object : View.OnTouchListener {
+
+                private var initialX = 0
+
+                private var initialY = 0
+
+                private var initialTouchX =
+                    0f
+
+                private var initialTouchY =
+                    0f
+
+                override fun onTouch(
+                    v: View?,
+                    event: MotionEvent
+                ): Boolean {
+
+                    when (event.action) {
+
+                        MotionEvent.ACTION_DOWN -> {
+
+                            initialX = params.x
+
+                            initialY = params.y
+
+                            initialTouchX =
+                                event.rawX
+
+                            initialTouchY =
+                                event.rawY
+
+                            return true
+                        }
+
+                        MotionEvent.ACTION_MOVE -> {
+
+                            params.x =
+                                initialX +
+                                (event.rawX -
+                                    initialTouchX)
+                                    .toInt()
+
+                            params.y =
+                                initialY +
+                                (event.rawY -
+                                    initialTouchY)
+                                    .toInt()
+
+                            windowManager
+                                .updateViewLayout(
+                                    textView,
+                                    params
+                                )
+
+                            return true
+                        }
+                    }
+
+                    return false
+                }
+            }
+        )
+
+        windowManager.addView(
+            textView,
+            params
+        )
+
+        overlayText = textView
     }
 
     override fun onDestroy() {
 
         super.onDestroy()
 
-        windowManager.removeView(
-            subtitleView
-        )
+        if (::textView.isInitialized) {
+
+            windowManager.removeView(
+                textView
+            )
+        }
     }
+
+    override fun onBind(
+        intent: Intent?
+    ): IBinder? = null
 }
