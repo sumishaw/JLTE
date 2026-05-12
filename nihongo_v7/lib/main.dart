@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-
   runApp(const MyApp());
 }
 
@@ -19,47 +17,21 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class HomePage extends StatefulWidget {
+class HomePage extends StatelessWidget {
   const HomePage({super.key});
-
-  @override
-  State<HomePage> createState() => _HomePageState();
-}
-
-class _HomePageState extends State<HomePage> {
-  static const platform =
-      MethodChannel('com.example.nihongolens/services');
-
-  Future<void> startTranslation() async {
-    try {
-      await platform.invokeMethod('startOverlay');
-    } catch (e) {
-      debugPrint("Error starting overlay: $e");
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0D0818),
+      backgroundColor: const Color(0xFF111111),
       body: Center(
-        child: ElevatedButton(
-          onPressed: startTranslation,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.black26,
-            padding: const EdgeInsets.symmetric(
-              horizontal: 28,
-              vertical: 16,
-            ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(30),
-            ),
-          ),
+        child: Container(
+          padding: const EdgeInsets.all(20),
           child: const Text(
-            "START LIVE TRANSLATION",
+            "Nihongo Lens Running",
             style: TextStyle(
-              color: Colors.white70,
-              fontSize: 16,
+              color: Colors.white,
+              fontSize: 24,
             ),
           ),
         ),
