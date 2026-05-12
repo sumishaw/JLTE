@@ -170,6 +170,13 @@ class _HomePageState extends State<HomePage> {
                 "Live subtitle updated";
           });
 
+          await methodChannel.invokeMethod(
+            "updateOverlay",
+            {
+              "text": translated,
+            },
+          );
+
         } catch (e) {
 
           setState(() {
@@ -198,6 +205,10 @@ class _HomePageState extends State<HomePage> {
   Future<void> startCapture() async {
 
     try {
+
+      await methodChannel.invokeMethod(
+        "startOverlay",
+      );
 
       await methodChannel.invokeMethod(
         "startCapture",
@@ -382,25 +393,6 @@ class _HomePageState extends State<HomePage> {
                   fontWeight:
                       FontWeight.bold,
                 ),
-              ),
-            ),
-
-            const SizedBox(height: 40),
-
-            const Text(
-
-              "REAL-TIME LIVE OCR ENGINE\n\n"
-              "• Native Kotlin OCR\n"
-              "• EventChannel subtitle streaming\n"
-              "• Real-time Japanese detection\n"
-              "• Live English translation\n"
-              "• Translation caching\n"
-              "• Duplicate subtitle filtering",
-
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.white54,
-                height: 1.6,
               ),
             ),
           ],
