@@ -7,9 +7,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
-import android.graphics.Canvas
 import android.graphics.PixelFormat
-import android.graphics.Rect
 import android.hardware.display.DisplayManager
 import android.hardware.display.VirtualDisplay
 import android.media.Image
@@ -23,8 +21,9 @@ import android.os.Looper
 import android.util.DisplayMetrics
 import android.util.Log
 import android.view.WindowManager
-import java.io.File
-import java.io.FileOutputStream
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.japanese.JapaneseTextRecognizerOptions
 import java.nio.ByteBuffer
 
 class ScreenCaptureService : Service() {
@@ -40,6 +39,14 @@ class ScreenCaptureService : Service() {
 
     private val handler =
         Handler(Looper.getMainLooper())
+
+    private val recognizer =
+        TextRecognition.getClient(
+            JapaneseTextRecognizerOptions.Builder()
+                .build()
+        )
+
+    private var lastSubtitle = ""
 
     override fun onStartCommand(
         intent: Intent?,
@@ -171,7 +178,24 @@ class ScreenCaptureService : Service() {
                 buffer
             )
 
-            // Crop subtitle region
+            image.close()
+
+            processOCR(bitmap)
+
+        } catch (e: Exception) {
+
+            Log.e(
+                "CaptureService",
+                "Frame error: ${e.message}"
+            )
+        }
+    }
+
+    private fun processOCR(
+        bitmap: Bitmap
+    ) {
+
+        try {
 
             val cropTop =
                 (bitmap.height * 0.70).toInt()
@@ -188,69 +212,52 @@ class ScreenCaptureService : Service() {
                     cropHeight
                 )
 
-            saveBitmap(cropped)
+            val inputImage =
+                InputImage.fromBitmap(
+                    cropped,
+                    0
+                )
 
-            image.close()
+            recognizer.process(inputImage)
 
-            Log.d(
-                "CaptureService",
-                "Subtitle region captured"
-            )
+                .addOnSuccessListener {
+
+                    val text =
+                        it.text.trim()
+
+                    if (
+                        text.isEmpty()
+                    ) return@addOnSuccessListener
+
+                    if (
+                        text == lastSubtitle
+                    ) return@addOnSuccessListener
+
+                    lastSubtitle = text
+
+                    MainActivity
+                        .subtitleSink
+                        ?.success(text)
+
+                    Log.d(
+                        "CaptureService",
+                        "Subtitle: $text"
+                    )
+                }
+
+                .addOnFailureListener {
+
+                    Log.e(
+                        "CaptureService",
+                        "OCR failed"
+                    )
+                }
 
         } catch (e: Exception) {
 
             Log.e(
                 "CaptureService",
-                "Frame error: ${e.message}"
-            )
-        }
-    }
-
-    private fun saveBitmap(
-        bitmap: Bitmap
-    ) {
-
-        try {
-
-            val dir =
-                File(
-                    filesDir,
-                    "captures"
-                )
-
-            if (!dir.exists()) {
-                dir.mkdirs()
-            }
-
-            val file =
-                File(
-                    dir,
-                    "latest_frame.png"
-                )
-
-            val stream =
-                FileOutputStream(file)
-
-            bitmap.compress(
-                Bitmap.CompressFormat.PNG,
-                100,
-                stream
-            )
-
-            stream.flush()
-
-            stream.close()
-
-            Log.d(
-                "CaptureService",
-                "Subtitle frame saved"
-            )
-
-        } catch (e: Exception) {
-
-            Log.e(
-                "CaptureService",
-                "Save error: ${e.message}"
+                "OCR error: ${e.message}"
             )
         }
     }
