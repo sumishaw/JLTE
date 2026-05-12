@@ -2,6 +2,7 @@ package com.example.nihongolens
 
 import android.app.Service
 import android.content.Intent
+import android.graphics.Color
 import android.graphics.PixelFormat
 import android.os.Build
 import android.os.IBinder
@@ -11,12 +12,19 @@ import android.widget.TextView
 
 class OverlayService : Service() {
 
-    private lateinit var windowManager: WindowManager
-    private lateinit var subtitleView: TextView
-
     companion object {
-        var latestSubtitle: String = "Waiting for translation..."
+
+        var latestSubtitle =
+            "Waiting for translation..."
     }
+
+    private lateinit var windowManager:
+            WindowManager
+
+    private lateinit var subtitleView:
+            TextView
+
+    private var running = true
 
     override fun onStartCommand(
         intent: Intent?,
@@ -31,49 +39,75 @@ class OverlayService : Service() {
         subtitleView = TextView(this).apply {
 
             text = latestSubtitle
-            textSize = 22f
 
-            setTextColor(android.graphics.Color.WHITE)
+            textSize = 24f
+
+            setTextColor(Color.WHITE)
 
             setBackgroundColor(
-                android.graphics.Color.argb(
-                    180,
+                Color.argb(
+                    170,
                     0,
                     0,
                     0
                 )
             )
 
-            setPadding(40, 20, 40, 20)
+            gravity = Gravity.CENTER
+
+            setPadding(
+                40,
+                20,
+                40,
+                20
+            )
         }
 
         val params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT,
+
+            WindowManager.LayoutParams.MATCH_PARENT,
+
             WindowManager.LayoutParams.WRAP_CONTENT,
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+
             else
+
                 WindowManager.LayoutParams.TYPE_PHONE,
 
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
+
             PixelFormat.TRANSLUCENT
         )
 
-        params.gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
-        params.y = 200
+        params.gravity =
+            Gravity.BOTTOM
 
-        windowManager.addView(subtitleView, params)
+        params.y = 120
+
+        windowManager.addView(
+            subtitleView,
+            params
+        )
 
         Thread {
 
-            while (true) {
+            while (running) {
 
-                Thread.sleep(500)
+                try {
 
-                subtitleView.post {
-                    subtitleView.text = latestSubtitle
-                }
+                    Thread.sleep(300)
+
+                    subtitleView.post {
+
+                        subtitleView.text =
+                            latestSubtitle
+                    }
+
+                } catch (_: Exception) {}
             }
 
         }.start()
@@ -85,13 +119,21 @@ class OverlayService : Service() {
 
         super.onDestroy()
 
+        running = false
+
         try {
-            windowManager.removeView(subtitleView)
-        } catch (_: Exception) {
-        }
+
+            windowManager.removeView(
+                subtitleView
+            )
+
+        } catch (_: Exception) {}
     }
 
-    override fun onBind(intent: Intent?): IBinder? {
+    override fun onBind(
+        intent: Intent?
+    ): IBinder? {
+
         return null
     }
 }
