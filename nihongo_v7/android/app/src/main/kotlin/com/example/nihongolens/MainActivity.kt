@@ -1,6 +1,8 @@
 package com.example.nihongolens
 
+import android.app.Activity
 import android.content.Intent
+import android.media.projection.MediaProjectionManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -10,12 +12,19 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
-class MainActivity: FlutterActivity() {
+class MainActivity : FlutterActivity() {
 
     private val CHANNEL = "com.example.nihongolens/services"
+    private val REQUEST_MEDIA_PROJECTION = 1001
+
+    private var pendingResult: MethodChannel.Result? = null
+    private lateinit var mediaProjectionManager: MediaProjectionManager
 
     override fun configureFlutterEngine(@NonNull flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+
+        mediaProjectionManager =
+            getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
 
         MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
@@ -34,18 +43,48 @@ class MainActivity: FlutterActivity() {
                     return@setMethodCallHandler
                 }
 
-                val serviceIntent = Intent(this, OverlayService::class.java)
+                pendingResult = result
 
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    startForegroundService(serviceIntent)
-                } else {
-                    startService(serviceIntent)
-                }
+                val captureIntent =
+                    mediaProjectionManager.createScreenCaptureIntent()
 
-                result.success(true)
+                startActivityForResult(
+                    captureIntent,
+                    REQUEST_MEDIA_PROJECTION
+                )
 
             } else {
                 result.notImplemented()
+            }
+        }
+    }
+
+    override fun onActivityResult(
+        requestCode: Int,
+        resultCode: Int,
+        data: Intent?
+    ) {
+        super.onActivityResult(requestCode, resultCode, data)
+
+        if (requestCode == REQUEST_MEDIA_PROJECTION) {
+
+            if (resultCode == Activity.RESULT_OK && data != null) {
+
+                val intent = Intent(this, OverlayService::class.java)
+
+                intent.putExtra("resultCode", resultCode)
+                intent.putExtra("data", data)
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    startForegroundService(intent)
+                } else {
+                    startService(intent)
+                }
+
+                pendingResult?.success(true)
+
+            } else {
+                pendingResult?.success(false)
             }
         }
     }
